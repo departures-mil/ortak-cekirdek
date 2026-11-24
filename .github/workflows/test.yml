@@ -28,3 +28,15 @@ jobs:
         run: bash delta/test/run.sh
       - name: Yayın akışı testi
         run: bash ci/test/run.sh
+
+  web:
+    name: Ortak arayüz (web)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Arayüz testleri
+        working-directory: web
+        run: npm test

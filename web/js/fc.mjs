@@ -1,0 +1,24 @@
+/* ES modülü girişi (Vite / React):  import { FC, i18n, updater } from '<core>/web/js/fc.mjs';
+   Dosyalar klasik betiktir; içe aktarıldıklarında globalThis.FC'yi doldururlar. */
+import './storage.js';
+import './i18n.js';
+import './ui.js';
+import './host.js';
+import './look.js';
+import './progress.js';
+import './updater.js';
+import './contact.js';
+import './crash.js';
+import './usage.js';
+import './onboarding.js';
+import './whatsnew.js';
+import './announcements.js';
+import './lan-sync-merge.js';
+import './settings.js';
+import './topbar.js';
+import './init.js';
+const FC = globalThis.FC;
+export default FC;
+export { FC };
+export const { storage, i18n, ui, host, look, progress, updater, contact, crash, usage, onboarding, whatsnew, announcements, lanMerge, settings, topbar, init } = FC;
+export const t = (k, v) => FC.t(k, v);
