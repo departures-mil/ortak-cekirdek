@@ -242,3 +242,7 @@ html[dir=rtl] .fc-flip svg,html[dir=rtl] svg.fc-flip{transform:scaleX(-1)}
 .fc-agent-chip.ai{color:var(--text);background:color-mix(in srgb,var(--accent) 30%,transparent)}
 .fc-agent-note .fc-agent-chip{margin-inline-end:6px}
 .check input{flex-shrink:0}
+
+/* Çerçevesiz pencerede (frame:false) üst çubuktan sürükleme */
+html.fc-host-electron .topbar{-webkit-app-region:drag}
+html.fc-host-electron .topbar button,html.fc-host-electron .topbar a,html.fc-host-electron .topbar input,html.fc-host-electron .topbar select,html.fc-host-electron .topbar-actions,html.fc-host-electron .update-float,html.fc-host-electron .lang-switch{-webkit-app-region:no-drag}

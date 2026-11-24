@@ -102,3 +102,10 @@ Android: `AndroidBridge.notify(title, body)` eklenirse öneriler sistem bildirim
   yapar; çakışmada yeni kalır, eski `conflicts` → uygulama çakışma yedeğine yazar. Silme işareti: `deleted:true` (+`deletedAt`).
 - **Arapça sayılar** teknik değerlerde Batı rakamlarıyla yazılır (`ar-u-nu-latn`).
 - Boyut: js ~170 KB ham (dist/fc-core.js 130 KB, gzip ~41 KB; bunun ~40 KB'ı üç dildeki metinler), css 48 KB, yazı tipleri ~470 KB.
+
+## Entegrasyon notları (pilot: Merkezi Servis)
+- `windowOptions()` artık `sandbox:false` ile gelir (preload `require` kullanır); `contextIsolation:true`, `nodeIntegration:false` korunur.
+- Çerçevesiz pencerede üst çubuk sürükleme alanıdır (`html.fc-host-electron .topbar`).
+- Bulut ve yapay zeka kullanmayan uygulamalar: `FC.usage.card({firebase:false, ai:false})` — kart "sınırlı hizmet yok" yazar.
+- Klasik şema kaydederken `--active-1` yarı saydam bir vurgu rengi olmalı (`.lang-btn.active` zemini); aksi halde etkin dil metni görünmez.
+- Uygulama `init`'i DOMContentLoaded'da çalışmalı; `productName`/`name` asla değiştirilmemeli (veri klasörü ve localStorage bunlara bağlı).

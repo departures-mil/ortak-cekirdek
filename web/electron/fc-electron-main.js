@@ -21,7 +21,7 @@ const ALLOWED_HOSTS = /^(github\.com|objects\.githubusercontent\.com|release-ass
 
 function windowOptions(extra) {
   const o = Object.assign({ show: false, fullscreen: true, frame: false, backgroundColor: '#070b14', autoHideMenuBar: true }, extra || {});
-  o.webPreferences = Object.assign({ contextIsolation: true, nodeIntegration: false, sandbox: true }, (extra && extra.webPreferences) || {});
+  o.webPreferences = Object.assign({ contextIsolation: true, nodeIntegration: false, sandbox: false }, (extra && extra.webPreferences) || {});
   return o;
 }
 

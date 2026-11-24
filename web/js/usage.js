@@ -102,7 +102,7 @@
       try { proj = (typeof o.project === 'function' ? o.project() : o.project) || v.project || ''; } catch (e) {}
       c.innerHTML = '';
       c.appendChild(el('h3.card-title', { html: ui.icon('gauge') + '<span>' + ui.esc(T('fc.usage.title')) + '</span>' }));
-      c.appendChild(el('p.card-desc', { text: T('fc.usage.desc') }));
+      c.appendChild(el('p.card-desc', { text: T(o.firebase === false && o.ai === false ? 'fc.usage.none' : 'fc.usage.desc') }));
       if (o.firebase !== false) {
         c.appendChild(el('div.fc-sub', { text: T('fc.usage.firebase') }));
         c.appendChild(el('div.field-hint', { text: proj ? T('fc.usage.project', { p: proj }) : T('fc.usage.noFirebase') }));
