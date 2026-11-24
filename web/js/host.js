@@ -42,6 +42,10 @@
       openExternal: h.openExternal ? function (u) { return h.openExternal(u); } : null,
       version: function () { return typeof h.version === 'function' ? String(h.version() || '') : (h.version || ''); }
     };
+    if (hu.deferred && typeof hu.applyStaged === 'function') {   // "hazırla, kapanınca kur" (fc-preload ≥ otomatik güncelleme)
+      r.update.deferred = true;
+      r.update.applyStaged = function () { return hu.applyStaged(); };
+    }
     if (typeof hu.run === 'function') r.update.run = function (plan, onProgress) { return hu.run(plan, onProgress); };   // kabuk her şeyi kendisi yapar
     return r;
   }

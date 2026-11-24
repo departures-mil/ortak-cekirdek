@@ -25,7 +25,10 @@ const fcHost = {
   update: {
     channel: info.channel || 'win-app',
     applyPatch: (bytes, meta) => unwrap(call('fc:update:patch', bytes, meta)),
-    installFull: (bytes, meta) => unwrap(call('fc:update:full', bytes, meta))
+    installFull: (bytes, meta) => unwrap(call('fc:update:full', bytes, meta)),
+    // meta.deferred → yalnız hazırla ('staged'); program kapanınca pencere açmadan kurulur. applyStaged → şimdi kur + yeniden aç.
+    deferred: true,
+    applyStaged: () => unwrap(call('fc:update:applyStaged'))
   },
   net: {
     download: (url, onProgress) => {

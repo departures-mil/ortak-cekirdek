@@ -183,3 +183,44 @@ test('run: FC.host.update.run varsa indirme/yama/kurulum kabukta; ilerleme ve ye
   assert.strictEqual(U.state().error, 'NATIVE_FAIL');
   delete FC.host;
 });
+
+test('otomatik: kabuk "hazırla, kapanınca kur" destekliyorsa yeni sürüm sorulmadan arka planda indirilir ve hazırlanır', async () => {
+  U._reset();
+  const calls = [];
+  FC.host = {
+    kind: 'electron', can: { update: true }, version: () => '1.56.0',
+    update: {
+      channel: 'win-app', deferred: true,
+      applyPatch: async (b, meta) => { calls.push(['patch', !!meta.deferred]); return meta.deferred ? 'staged' : 'restarting'; },
+      installFull: async (b, meta) => { calls.push(['full', !!meta.deferred]); return meta.deferred ? 'staged' : 'restarting'; },
+      applyStaged: async () => { calls.push(['apply']); return 'restarting'; }
+    }
+  };
+  const files = { 'latest.json': JSON.stringify(manifest()), 'Demo-app.patch-from-1.56.0.bin': PATCH, 'Demo-1.57.0-app.asar': FULL };
+  U.start({ repo: 'demo', app: 'demo', version: '1.56.0', autoCheck: false, fetch: mockFetch(files, []) });
+  const states = []; U.subscribe((s) => states.push(s.status));
+  await U.check({ silent: true });
+  for (let i = 0; i < 50 && U.state().status !== 'ready'; i++) await new Promise((r) => setTimeout(r, 10));
+  assert.strictEqual(U.state().status, 'ready');
+  assert.ok(!states.includes('available'), '"yeni sürüm" penceresi tetiklenmez');
+  assert.deepStrictEqual(calls, [['patch', true]]);
+  // denetim hazır güncellemeyi bozmaz; Güncelle → hemen kur
+  await U.check({ silent: true }); assert.strictEqual(U.state().status, 'ready');
+  assert.strictEqual(await U.run(), 'staged');
+  assert.deepStrictEqual(calls.at(-1), ['apply']);
+  // autoInstall:false → eskisi gibi "available"
+  U._reset(); calls.length = 0;
+  U.start({ repo: 'demo', app: 'demo', version: '1.56.0', autoCheck: false, autoInstall: false, fetch: mockFetch(files, []) });
+  await U.check({ silent: true });
+  assert.strictEqual(U.state().status, 'available'); assert.deepStrictEqual(calls, []);
+});
+test('otomatik: arka plan indirmesi başarısızsa sessizce "available" olur (elle güncelleme çalışır)', async () => {
+  U._reset();
+  FC.host = { kind: 'electron', can: { update: true }, version: () => '1.56.0', update: { channel: 'win-app', deferred: true,
+    applyPatch: async () => 'staged', installFull: async () => 'staged', applyStaged: async () => 'restarting' } };
+  const files = { 'latest.json': JSON.stringify(manifest()), 'Demo-app.patch-from-1.56.0.bin': 'bozk', 'Demo-1.57.0-app.asar': Buffer.alloc(FULL.length) };
+  U.start({ repo: 'demo', app: 'demo', version: '1.56.0', autoCheck: false, fetch: mockFetch(files, []) });
+  await U.check({ silent: true });
+  for (let i = 0; i < 50 && U.state().status !== 'available'; i++) await new Promise((r) => setTimeout(r, 10));
+  assert.strictEqual(U.state().status, 'available'); assert.strictEqual(U.state().error, null);
+});

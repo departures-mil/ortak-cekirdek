@@ -100,7 +100,7 @@
   /** Denetle. {silent:true} arka plan denetimi: hata kullanıcıya gösterilmez. */
   async function check(o) {
     o = o || {};
-    if (running || state.status === 'checking') return state.plan;
+    if (running || state.status === 'checking' || state.status === 'queued' || state.status === 'ready') return state.plan;
     if (!cfg.repo && !cfg.manifestUrl) return null;
     if (!online()) { if (!o.silent) set({ error: 'OFFLINE' }); return state.plan; }
     var prev = state.status;
@@ -109,7 +109,9 @@
       var man = await loadManifest(), op = opts();
       var p = man ? plan(man, op) : null;
       if (p && FC.storage) FC.storage.set('whatsnew.pending', { version: p.version, notes: p.notes });
-      set({ status: p ? 'available' : 'none', plan: p, current: op.version, checkedAt: new Date().toISOString(), error: null });
+      var bgOk = p && canBackground();
+      set({ status: p ? (bgOk ? 'queued' : 'available') : 'none', plan: p, current: op.version, checkedAt: new Date().toISOString(), error: null });
+      if (bgOk) setTimeout(function () { background(p); }, 0);
       return p;
     } catch (e) {
       set({ status: o.silent ? (prev === 'checking' ? 'idle' : prev) : 'error', error: e.code || e.message || 'ERR' });
@@ -124,12 +126,43 @@
     if (bytes.length !== item.size || (await sha256(bytes)) !== item.sha256) throw Object.assign(new Error('BAD_HASH'), { code: 'BAD_HASH' });
     return bytes;
   }
-  /** Tek tuş: her şeyi yapar. Yama yolunda herhangi bir hata → tam dosya. */
+  /* ---------- otomatik (arka plan) güncelleme ----------
+     Kabuk "hazırla, kapanınca kur" destekliyorsa (FC.host.update.deferred: Electron) ve cfg.autoInstall !== false:
+     yeni sürüm bulununca kullanıcıya hiçbir şey sorulmadan arka planda indirilir, doğrulanır ve hazırlanır (status 'ready').
+     Program kapanınca kabuk pencere açmadan kurar; bir sonraki açılışta yeni sürüm gelir ("neler yeni" gösterilir).
+     Güncelle düğmesi o an basılırsa hazır güncelleme hemen kurulur ve program yeniden açılır. Hata olursa sessizce 'available'a döner. */
+  function canBackground() {
+    var h = host(), hu = h.update || {};
+    return cfg.autoInstall !== false && !!(h.can && h.can.update && hu.deferred && hu.applyStaged && hu.applyPatch && hu.installFull);
+  }
+  async function background(p) {
+    if (running || state.status === 'ready') return;
+    running = true; set({ bg: true, error: null, fallback: false, patchError: null });
+    var h = host(), meta = { version: p.version, channel: p.channel, targetSha256: p.targetSha256, targetSize: p.targetSize, file: p.full.file, deferred: true };
+    try {
+      var r = null;
+      if (p.mode === 'patch') {
+        try { var pb = await fetchVerified(p, 'patch'); set({ status: 'installing' }); r = await h.update.applyPatch(pb, Object.assign({ patchSha256: p.sha256 }, meta)); }
+        catch (e) { set({ fallback: true, patchError: e.code || e.message }); r = null; }
+      }
+      if (r !== 'staged') { var fb = await fetchVerified(p.full, 'full'); set({ status: 'installing' }); r = await h.update.installFull(fb, meta); }
+      if (r !== 'staged') throw Object.assign(new Error('NOT_STAGED'), { code: 'NOT_STAGED' });
+      set({ status: 'ready', plan: p, progress: null });
+    } catch (e) {
+      set({ status: 'available', error: null, bgError: e.code || e.message || 'ERR' });
+    } finally { running = false; set({ bg: false }); }
+  }
+  /** Tek tuş: her şeyi yapar. Yama yolunda herhangi bir hata → tam dosya. Hazırlanmış güncelleme varsa hemen kurar. */
   async function run() {
     if (running) return;
+    var h = host();
+    if (state.status === 'ready' && h.update && h.update.applyStaged) {
+      try { set({ status: 'restarting' }); await h.update.applyStaged(); return 'staged'; }
+      catch (e) { set({ status: 'available' }); }
+    }
     var p = state.plan || (await check());
     if (!p) return;
-    var h = host();
+    if (state.status === 'ready') return run();
     if (!h.can || !h.can.update) {
       set({ status: 'available' });
       FC.ui && FC.ui.openUrl('https://github.com/' + (cfg.owner || OWNER) + '/' + cfg.repo + '/releases/latest');

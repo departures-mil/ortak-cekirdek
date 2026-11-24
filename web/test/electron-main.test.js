@@ -63,7 +63,8 @@ test('beforeUpdate: doğrulanmış tam dosya hazırlandıktan sonra, takastan ö
 });
 
 test('runSetup / win-setup: setupArgs (true → NSIS /S), beforeUpdate "setup", cwd geçici klasör', async () => {
-  assert.deepStrictEqual(fcm.setupArgsFor(undefined), []);
+  assert.deepStrictEqual(fcm.setupArgsFor(undefined), ['/S', '--force-run'], 'varsayılan: sessiz + yeniden aç');
+  assert.deepStrictEqual(fcm.setupArgsFor(false), []);
   assert.deepStrictEqual(fcm.setupArgsFor(true), ['/S']);
   assert.deepStrictEqual(fcm.setupArgsFor('inno')[0], '/VERYSILENT');
   assert.deepStrictEqual(fcm.setupArgsFor(['/S', '--force-run']), ['/S', '--force-run']);
@@ -78,9 +79,9 @@ test('runSetup / win-setup: setupArgs (true → NSIS /S), beforeUpdate "setup", 
   assert.deepStrictEqual(spawned, [['Demo_Setup_1.2.0.exe', ['/S'], true]]);
   assert.throws(() => fcm.runSetup(EXE, { targetSha256: H(EXE) }, { platform: 'linux' }), /SETUP_WINDOWS_ONLY/);
   assert.throws(() => fcm.runSetup(EXE, { targetSha256: 'b'.repeat(64) }, { platform: 'win32', spawn: sp }), /BAD_HASH/);
-  // argüman verilmezse eskisi gibi argümansız
+  // argüman verilmezse sessiz kurulum + yeniden aç; pencere gizli
   spawned.length = 0; fcm.runSetup(EXE, { targetSha256: H(EXE), file: 'a.exe' }, { platform: 'win32', spawn: sp });
-  assert.deepStrictEqual(spawned[0][1], []);
+  assert.deepStrictEqual(spawned[0][1], ['/S', '--force-run']);
 });
 
 test('fc:net:download: net.fetch yoksa https ile (yönlendirme izlenir, izinsiz alan adı reddedilir)', async () => {
@@ -114,4 +115,62 @@ test('fc:net:download: net.fetch yoksa https ile (yönlendirme izlenir, izinsiz 
     assert.strictEqual(Buffer.from(await call(w, 'fc:net:download', 10, 'https://github.com/a')).toString(), 'AB');
     assert.deepStrictEqual(seen, []);
   } finally { https.get = orig; }
+});
+
+test('otomatik güncelleme: deferred → hazırla (staged), kapanışta kur; applyStaged → hemen; sonraki açılışta da hazır', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fcm-'));
+  const asar = path.join(dir, 'app.asar'); fs.writeFileSync(asar, 'eski');
+  const NEW = Buffer.from('yeni-app-asar-2');
+  const log = [];
+  const quit = [];
+  fake.app.on = (ev, f) => { if (ev === 'will-quit') quit.push(f); };
+  fcm.install.quitHooked = false;
+  const w = fakeWin();
+  fcm.install(w, { cleanup: false, asarPath: asar, _swap: (o, st, noRelaunch) => log.push(['swap', fs.existsSync(st.next), !!noRelaunch]) });
+  const r = await call(w, 'fc:update:full', new Uint8Array(NEW), { version: '1.2.0', targetSha256: H(NEW), targetSize: NEW.length, channel: 'win-app', deferred: true });
+  assert.deepStrictEqual(r, { ok: true, data: 'staged' });
+  assert.deepStrictEqual(log, [], 'hemen takas yok');
+  assert.ok(fs.existsSync(asar + '.next') && fs.existsSync(asar + '.next.json'));
+  // program yeniden açıldı (kurulmadan kapanmış): hazır güncelleme hatırlanır, kapanışta kurulur
+  const w2 = fakeWin();
+  fcm.install(w2, { cleanup: false, asarPath: asar, _swap: (o, st, noRelaunch) => log.push(['swap', fs.existsSync(st.next), !!noRelaunch]) });
+  assert.ok(quit.length >= 1);
+  quit.forEach((f) => f());
+  assert.deepStrictEqual(log, [['swap', true, true]], 'kapanışta yeniden açmadan takas');
+  // applyStaged: hemen takas + yeniden aç
+  log.length = 0;
+  await call(w2, 'fc:update:full', new Uint8Array(NEW), { version: '1.2.0', targetSha256: H(NEW), targetSize: NEW.length, deferred: true });
+  assert.deepStrictEqual(await call(w2, 'fc:update:applyStaged'), { ok: true, data: 'restarting' });
+  assert.deepStrictEqual(log, [['swap', true, false]]);
+  assert.deepStrictEqual(await call(w2, 'fc:update:applyStaged'), { ok: false, error: 'NOTHING_STAGED' });
+  // bozuk hazır dosya: açılışta silinir
+  fs.writeFileSync(asar + '.next', 'bozuk'); fs.writeFileSync(asar + '.next.json', JSON.stringify({ version: '1.2.0', sha256: H(NEW) }));
+  fcm.install(fakeWin(), { cleanup: false, asarPath: asar, _swap: () => log.push('x') });
+  assert.ok(!fs.existsSync(asar + '.next'));
+  fake.app.on = () => {};
+});
+
+test('takas yardımcısı (pencere açmaz): program kapanınca eskisini .bak yapar, yenisini koyar, yeniden açar; kurulumu sessiz çalıştırır', () => {
+  const cp = require('child_process');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fch-'));
+  const t = path.join(dir, 'app.asar'); fs.writeFileSync(t, 'eski'); fs.writeFileSync(t + '.next', 'yeni');
+  const child = cp.spawn(process.execPath, ['-e', 'setTimeout(()=>{},700)']);
+  const opened = path.join(dir, 'acildi');
+  const cfg = { pid: child.pid, target: t, next: t + '.next', exe: process.execPath, args: ['-e', "require('fs').writeFileSync(" + JSON.stringify(opened) + ",'1')"], relaunch: true, log: path.join(dir, 'log') };
+  const js = path.join(dir, 'h.js'); fs.writeFileSync(js, '(' + fcm.swapHelper.toString() + ')(' + JSON.stringify(cfg) + ');');
+  cp.execFileSync(process.execPath, [js]);
+  assert.strictEqual(fs.readFileSync(t, 'utf8'), 'yeni'); assert.strictEqual(fs.readFileSync(t + '.bak', 'utf8'), 'eski');
+  assert.ok(!fs.existsSync(js), 'betik kendini siler');
+  const until = Date.now() + 5000; while (!fs.existsSync(opened) && Date.now() < until) cp.execFileSync('sleep', ['0.1']);
+  assert.ok(fs.existsSync(opened), 'program yeniden açıldı');
+  assert.match(fs.readFileSync(cfg.log, 'utf8'), /takas tamam/);
+  // kurulum: sessiz çalıştırılır, argümanlar geçer
+  const sdir = fs.mkdtempSync(path.join(os.tmpdir(), 'fcs-')), out = path.join(dir, 'kurulum');
+  const setup = path.join(sdir, 'kur.sh'); fs.writeFileSync(setup, '#!/bin/sh\necho "$@" > ' + JSON.stringify(out) + '\n'); fs.chmodSync(setup, 0o755);
+  const cfg2 = { pid: 999999, setup, setupArgs: ['/S'], exe: process.execPath, args: [], relaunch: false, log: cfg.log };
+  fs.writeFileSync(js, '(' + fcm.swapHelper.toString() + ')(' + JSON.stringify(cfg2) + ');');
+  cp.execFileSync(process.execPath, [js]);
+  assert.strictEqual(fs.readFileSync(out, 'utf8').trim(), '/S');
+  assert.ok(!fs.existsSync(sdir), 'geçici kurulum klasörü silinir');
+  assert.ok(!/tasklist \/FI|'cmd\.exe'/.test(fs.readFileSync(path.join(__dirname, '../electron/fc-electron-main.js'), 'utf8')), 'konsol betiği yok');
 });

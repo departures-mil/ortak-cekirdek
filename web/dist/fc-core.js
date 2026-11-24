@@ -118,7 +118,7 @@
       'fc.h': 'sa', 'fc.min': 'dk',
       'fc.sync': 'Eşitle', 'fc.sync.idle': 'Eşitlendi', 'fc.sync.syncing': 'Eşitleniyor…', 'fc.sync.error': 'Eşitleme hatası — yeniden denemek için basın', 'fc.sync.off': 'Bulut eşitleme kapalı', 'fc.sync.offline': 'İnternet yok — değişiklikler bu cihazda saklanıyor', 'fc.sync.pending': '{n} değişiklik gönderilmeyi bekliyor',
       'fc.lan': 'Wi-Fi', 'fc.lan.on': 'Wi-Fi eşitleme açık (aynı ağdaki cihazlar)', 'fc.lan.off': 'Wi-Fi eşitleme kapalı', 'fc.lan.busy': 'Wi-Fi ile eşitleniyor…',
-      'fc.update': 'Güncelle', 'fc.update.check': 'Güncellemeleri denetle', 'fc.update.checking': 'Denetleniyor…', 'fc.update.none': 'Program güncel (v{v})', 'fc.update.avail': 'Yeni sürüm hazır: v{v}', 'fc.update.press': 'Tek tuşla güncellemek için basın. Kayıtlarınız korunur.',
+      'fc.update': 'Güncelle', 'fc.update.check': 'Güncellemeleri denetle', 'fc.update.checking': 'Denetleniyor…', 'fc.update.none': 'Program güncel (v{v})', 'fc.update.avail': 'Yeni sürüm hazır: v{v}', 'fc.update.press': 'Tek tuşla güncellemek için basın. Kayıtlarınız korunur.', 'fc.update.ready': 'v{v} indirildi; program kapanınca kendiliğinden kurulur.', 'fc.update.now': 'Şimdi kur ve yeniden aç',
       'fc.update.downloading': 'İndiriliyor…', 'fc.update.verifying': 'Doğrulanıyor…', 'fc.update.installing': 'Kuruluyor…', 'fc.update.restarting': 'Program yeniden başlatılıyor…', 'fc.update.done': 'Güncelleme kuruldu', 'fc.update.failed': 'Güncelleme yapılamadı: {e}', 'fc.update.fallback': 'Yama uygulanamadı, tam sürüm indiriliyor…', 'fc.update.browser': 'Yeni sürüm yayınlandı; indirme sayfası açılıyor.', 'fc.update.patchMode': 'yalnızca değişen kısımlar', 'fc.update.fullMode': 'tam paket', 'fc.update.offline': 'İnternet yok; bağlantı gelince yeniden denenecek.', 'fc.update.bad': 'İndirilen dosya doğrulanamadı (SHA-256 uyuşmuyor).',
       'fc.p.left': 'kalan {x}', 'fc.p.speed': 'MB/sn', 'fc.p.calc': 'hız hesaplanıyor…', 'fc.p.done': 'İndirildi',
       'fc.theme': 'Tema', 'fc.theme.dark': 'Koyu', 'fc.theme.light': 'Açık', 'fc.theme.auto': 'Otomatik', 'fc.theme.toggle': 'Koyu / açık tema', 'fc.font': 'Yazı boyutu', 'fc.font.smaller': 'Yazıyı küçült', 'fc.font.larger': 'Yazıyı büyüt', 'fc.font.reset': 'Varsayılan', 'fc.look': 'Görünüm', 'fc.look.desc': 'Tema, yazı boyutu ve dil bu cihazda saklanır.',
@@ -140,7 +140,7 @@
       'fc.h': 'h', 'fc.min': 'min',
       'fc.sync': 'Sync', 'fc.sync.idle': 'Synced', 'fc.sync.syncing': 'Syncing…', 'fc.sync.error': 'Sync error — press to try again', 'fc.sync.off': 'Cloud sync is off', 'fc.sync.offline': 'No internet — changes are kept on this device', 'fc.sync.pending': '{n} changes waiting to be sent',
       'fc.lan': 'Wi-Fi', 'fc.lan.on': 'Wi-Fi sync is on (devices on the same network)', 'fc.lan.off': 'Wi-Fi sync is off', 'fc.lan.busy': 'Syncing over Wi-Fi…',
-      'fc.update': 'Update', 'fc.update.check': 'Check for updates', 'fc.update.checking': 'Checking…', 'fc.update.none': 'Up to date (v{v})', 'fc.update.avail': 'New version ready: v{v}', 'fc.update.press': 'Press once to update. Your records are kept.',
+      'fc.update': 'Update', 'fc.update.check': 'Check for updates', 'fc.update.checking': 'Checking…', 'fc.update.none': 'Up to date (v{v})', 'fc.update.avail': 'New version ready: v{v}', 'fc.update.press': 'Press once to update. Your records are kept.', 'fc.update.ready': 'v{v} downloaded; it installs by itself when the program closes.', 'fc.update.now': 'Install now and reopen',
       'fc.update.downloading': 'Downloading…', 'fc.update.verifying': 'Verifying…', 'fc.update.installing': 'Installing…', 'fc.update.restarting': 'Restarting the program…', 'fc.update.done': 'Update installed', 'fc.update.failed': 'Update failed: {e}', 'fc.update.fallback': 'The patch could not be applied; downloading the full version…', 'fc.update.browser': 'A new version is out; opening the download page.', 'fc.update.patchMode': 'changed parts only', 'fc.update.fullMode': 'full package', 'fc.update.offline': 'No internet; will try again when online.', 'fc.update.bad': 'The downloaded file could not be verified (SHA-256 mismatch).',
       'fc.p.left': '{x} left', 'fc.p.speed': 'MB/s', 'fc.p.calc': 'measuring speed…', 'fc.p.done': 'Downloaded',
       'fc.theme': 'Theme', 'fc.theme.dark': 'Dark', 'fc.theme.light': 'Light', 'fc.theme.auto': 'Auto', 'fc.theme.toggle': 'Dark / light theme', 'fc.font': 'Text size', 'fc.font.smaller': 'Smaller text', 'fc.font.larger': 'Larger text', 'fc.font.reset': 'Default', 'fc.look': 'Appearance', 'fc.look.desc': 'Theme, text size and language are stored on this device.',
@@ -162,7 +162,7 @@
       'fc.h': 'س', 'fc.min': 'د',
       'fc.sync': 'مزامنة', 'fc.sync.idle': 'تمت المزامنة', 'fc.sync.syncing': 'جارٍ المزامنة…', 'fc.sync.error': 'خطأ في المزامنة — اضغط لإعادة المحاولة', 'fc.sync.off': 'المزامنة السحابية متوقفة', 'fc.sync.offline': 'لا يوجد اتصال بالإنترنت — التغييرات محفوظة على هذا الجهاز', 'fc.sync.pending': '{n} تغييرات بانتظار الإرسال',
       'fc.lan': 'Wi-Fi', 'fc.lan.on': 'مزامنة Wi-Fi مفعّلة (الأجهزة على الشبكة نفسها)', 'fc.lan.off': 'مزامنة Wi-Fi متوقفة', 'fc.lan.busy': 'جارٍ المزامنة عبر Wi-Fi…',
-      'fc.update': 'تحديث', 'fc.update.check': 'التحقق من التحديثات', 'fc.update.checking': 'جارٍ التحقق…', 'fc.update.none': 'البرنامج محدَّث (v{v})', 'fc.update.avail': 'إصدار جديد جاهز: v{v}', 'fc.update.press': 'اضغط مرة واحدة للتحديث. تبقى سجلاتك محفوظة.',
+      'fc.update': 'تحديث', 'fc.update.check': 'التحقق من التحديثات', 'fc.update.checking': 'جارٍ التحقق…', 'fc.update.none': 'البرنامج محدَّث (v{v})', 'fc.update.avail': 'إصدار جديد جاهز: v{v}', 'fc.update.press': 'اضغط مرة واحدة للتحديث. تبقى سجلاتك محفوظة.', 'fc.update.ready': 'تم تنزيل v{v}؛ يُثبَّت تلقائياً عند إغلاق البرنامج.', 'fc.update.now': 'ثبّت الآن وأعد الفتح',
       'fc.update.downloading': 'جارٍ التنزيل…', 'fc.update.verifying': 'جارٍ التحقق من الملف…', 'fc.update.installing': 'جارٍ التثبيت…', 'fc.update.restarting': 'جارٍ إعادة تشغيل البرنامج…', 'fc.update.done': 'تم تثبيت التحديث', 'fc.update.failed': 'تعذّر التحديث: {e}', 'fc.update.fallback': 'تعذّر تطبيق التصحيح؛ جارٍ تنزيل الإصدار الكامل…', 'fc.update.browser': 'صدر إصدار جديد؛ جارٍ فتح صفحة التنزيل.', 'fc.update.patchMode': 'الأجزاء المتغيرة فقط', 'fc.update.fullMode': 'الحزمة الكاملة', 'fc.update.offline': 'لا يوجد اتصال؛ ستُعاد المحاولة عند عودة الإنترنت.', 'fc.update.bad': 'تعذّر التحقق من الملف المنزَّل (بصمة SHA-256 غير مطابقة).',
       'fc.p.left': 'متبقٍّ {x}', 'fc.p.speed': 'م.ب/ث', 'fc.p.calc': 'جارٍ قياس السرعة…', 'fc.p.done': 'اكتمل التنزيل',
       'fc.theme': 'السمة', 'fc.theme.dark': 'داكنة', 'fc.theme.light': 'فاتحة', 'fc.theme.auto': 'تلقائية', 'fc.theme.toggle': 'سمة داكنة / فاتحة', 'fc.font': 'حجم الخط', 'fc.font.smaller': 'تصغير الخط', 'fc.font.larger': 'تكبير الخط', 'fc.font.reset': 'الافتراضي', 'fc.look': 'المظهر', 'fc.look.desc': 'تُحفظ السمة وحجم الخط واللغة على هذا الجهاز.',
@@ -358,6 +358,10 @@
       openExternal: h.openExternal ? function (u) { return h.openExternal(u); } : null,
       version: function () { return typeof h.version === 'function' ? String(h.version() || '') : (h.version || ''); }
     };
+    if (hu.deferred && typeof hu.applyStaged === 'function') {   // "hazırla, kapanınca kur" (fc-preload ≥ otomatik güncelleme)
+      r.update.deferred = true;
+      r.update.applyStaged = function () { return hu.applyStaged(); };
+    }
     if (typeof hu.run === 'function') r.update.run = function (plan, onProgress) { return hu.run(plan, onProgress); };   // kabuk her şeyi kendisi yapar
     return r;
   }
@@ -798,7 +802,7 @@
   /** Denetle. {silent:true} arka plan denetimi: hata kullanıcıya gösterilmez. */
   async function check(o) {
     o = o || {};
-    if (running || state.status === 'checking') return state.plan;
+    if (running || state.status === 'checking' || state.status === 'queued' || state.status === 'ready') return state.plan;
     if (!cfg.repo && !cfg.manifestUrl) return null;
     if (!online()) { if (!o.silent) set({ error: 'OFFLINE' }); return state.plan; }
     var prev = state.status;
@@ -807,7 +811,9 @@
       var man = await loadManifest(), op = opts();
       var p = man ? plan(man, op) : null;
       if (p && FC.storage) FC.storage.set('whatsnew.pending', { version: p.version, notes: p.notes });
-      set({ status: p ? 'available' : 'none', plan: p, current: op.version, checkedAt: new Date().toISOString(), error: null });
+      var bgOk = p && canBackground();
+      set({ status: p ? (bgOk ? 'queued' : 'available') : 'none', plan: p, current: op.version, checkedAt: new Date().toISOString(), error: null });
+      if (bgOk) setTimeout(function () { background(p); }, 0);
       return p;
     } catch (e) {
       set({ status: o.silent ? (prev === 'checking' ? 'idle' : prev) : 'error', error: e.code || e.message || 'ERR' });
@@ -822,12 +828,43 @@
     if (bytes.length !== item.size || (await sha256(bytes)) !== item.sha256) throw Object.assign(new Error('BAD_HASH'), { code: 'BAD_HASH' });
     return bytes;
   }
-  /** Tek tuş: her şeyi yapar. Yama yolunda herhangi bir hata → tam dosya. */
+  /* ---------- otomatik (arka plan) güncelleme ----------
+     Kabuk "hazırla, kapanınca kur" destekliyorsa (FC.host.update.deferred: Electron) ve cfg.autoInstall !== false:
+     yeni sürüm bulununca kullanıcıya hiçbir şey sorulmadan arka planda indirilir, doğrulanır ve hazırlanır (status 'ready').
+     Program kapanınca kabuk pencere açmadan kurar; bir sonraki açılışta yeni sürüm gelir ("neler yeni" gösterilir).
+     Güncelle düğmesi o an basılırsa hazır güncelleme hemen kurulur ve program yeniden açılır. Hata olursa sessizce 'available'a döner. */
+  function canBackground() {
+    var h = host(), hu = h.update || {};
+    return cfg.autoInstall !== false && !!(h.can && h.can.update && hu.deferred && hu.applyStaged && hu.applyPatch && hu.installFull);
+  }
+  async function background(p) {
+    if (running || state.status === 'ready') return;
+    running = true; set({ bg: true, error: null, fallback: false, patchError: null });
+    var h = host(), meta = { version: p.version, channel: p.channel, targetSha256: p.targetSha256, targetSize: p.targetSize, file: p.full.file, deferred: true };
+    try {
+      var r = null;
+      if (p.mode === 'patch') {
+        try { var pb = await fetchVerified(p, 'patch'); set({ status: 'installing' }); r = await h.update.applyPatch(pb, Object.assign({ patchSha256: p.sha256 }, meta)); }
+        catch (e) { set({ fallback: true, patchError: e.code || e.message }); r = null; }
+      }
+      if (r !== 'staged') { var fb = await fetchVerified(p.full, 'full'); set({ status: 'installing' }); r = await h.update.installFull(fb, meta); }
+      if (r !== 'staged') throw Object.assign(new Error('NOT_STAGED'), { code: 'NOT_STAGED' });
+      set({ status: 'ready', plan: p, progress: null });
+    } catch (e) {
+      set({ status: 'available', error: null, bgError: e.code || e.message || 'ERR' });
+    } finally { running = false; set({ bg: false }); }
+  }
+  /** Tek tuş: her şeyi yapar. Yama yolunda herhangi bir hata → tam dosya. Hazırlanmış güncelleme varsa hemen kurar. */
   async function run() {
     if (running) return;
+    var h = host();
+    if (state.status === 'ready' && h.update && h.update.applyStaged) {
+      try { set({ status: 'restarting' }); await h.update.applyStaged(); return 'staged'; }
+      catch (e) { set({ status: 'available' }); }
+    }
     var p = state.plan || (await check());
     if (!p) return;
-    var h = host();
+    if (state.status === 'ready') return run();
     if (!h.can || !h.can.update) {
       set({ status: 'available' });
       FC.ui && FC.ui.openUrl('https://github.com/' + (cfg.owner || OWNER) + '/' + cfg.repo + '/releases/latest');
@@ -2273,17 +2310,24 @@
       var pbox = FC.progress.box(); float.appendChild(pbox.el);
       var floatBtns = el('div.fc-row'); float.appendChild(floatBtns);
       wrap.appendChild(ub); wrap.appendChild(float); bar.appendChild(wrap);
-      var us = FC.updater.state(), hideT = null, showResult = false;
+      var us = FC.updater.state(), hideT = null, showResult = false, readyShown = false, readyHidden = false;
       function busy(s) { return ['downloading', 'verifying', 'installing', 'restarting'].indexOf(s) >= 0; }
       function drawUpdate() {
         var s = us.status, p = us.plan;
-        ub.className = 'btn small top-act update-act' + (s === 'available' ? ' avail' : '') + (busy(s) || s === 'checking' ? ' busy' : '');
-        ub.disabled = busy(s);
-        ub.innerHTML = icon(s === 'checking' ? 'sync' : 'download', s === 'checking' ? 'fc-spin' : '') + '<span class="top-act-label">' + ui.esc(T('fc.update')) + '</span>' + (s === 'available' ? '<span class="update-dot"></span>' : '');
-        var tip = s === 'available' && p ? T('fc.update.avail', { v: p.version }) : s === 'none' ? T('fc.update.none', { v: us.current }) : T('fc.update.check');
+        var bgBusy = us.bg && !showResult && (busy(s) || s === 'queued');   // arka planda indiriliyor: kullanıcıyı rahatsız etme
+        ub.className = 'btn small top-act update-act' + (s === 'available' || s === 'ready' ? ' avail' : '') + ((busy(s) && !bgBusy) || s === 'checking' ? ' busy' : '');
+        ub.disabled = busy(s) && !us.bg;
+        ub.innerHTML = icon(s === 'checking' ? 'sync' : 'download', s === 'checking' ? 'fc-spin' : '') + '<span class="top-act-label">' + ui.esc(T('fc.update')) + '</span>' + (s === 'available' || s === 'ready' ? '<span class="update-dot"></span>' : '');
+        var tip = s === 'ready' && p ? T('fc.update.ready', { v: p.version }) : s === 'available' && p ? T('fc.update.avail', { v: p.version }) : s === 'none' ? T('fc.update.none', { v: us.current }) : T('fc.update.check');
         ub.title = tip; ub.setAttribute('aria-label', tip);
         floatBtns.innerHTML = '';
-        if (busy(s)) {
+        if (bgBusy) float.hidden = true;
+        else if (s === 'ready' && p) {
+          float.hidden = false; pbox.busy(T('fc.update.ready', { v: p.version })); pbox.el.querySelector('.update-bar').hidden = true;
+          floatBtns.appendChild(el('button.btn.small.primary', { type: 'button', html: icon('download') + ui.esc(T('fc.update.now')), onclick: function () { FC.updater.run().catch(function () {}); } }));
+          if (!readyShown) { readyShown = true; clearTimeout(hideT); hideT = setTimeout(function () { showResult = false; readyHidden = true; drawUpdate(); }, 10000); }
+          if (readyHidden && !showResult) float.hidden = true;
+        } else if (busy(s)) {
           float.hidden = false;
           if (s === 'downloading' && us.progress) {
             pbox.title(us.fallback ? T('fc.update.fallback') : T('fc.update.downloading') + (p ? ' v' + p.version : ''));
@@ -2307,7 +2351,8 @@
         var bb = pbox.el.querySelector('.update-bar'); if (bb && (busy(s) || s === 'checking')) bb.hidden = false;
       }
       ub.addEventListener('click', function () {
-        if (us.status === 'available') { showResult = false; FC.updater.run().catch(function () { showResult = true; drawUpdate(); }); }
+        if (us.status === 'available' || us.status === 'ready') { showResult = false; FC.updater.run().catch(function () { showResult = true; drawUpdate(); }); }
+        else if (us.bg) { showResult = true; drawUpdate(); }   // arka plandaki indirmenin ilerlemesini göster
         else { showResult = true; FC.updater.check(); drawUpdate(); }
       });
       g.document.addEventListener('mousedown', function (e) { if (showResult && !wrap.contains(e.target)) { showResult = false; drawUpdate(); } });

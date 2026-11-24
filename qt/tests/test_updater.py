@@ -95,6 +95,7 @@ def appdirs(tmp_path):
 
 def mk(a, files=None, hits=None, **kw):
     spawned = []
+    kw.setdefault('auto_install', False)
     u = Updater(repo='organizer', app='organizer', version='1.2.0', opener=server(a['files'] if files is None else files, hits), app_dir=str(a['old']),
                 exe=str(a['old'] / 'Organizer.exe'), staging=str(a['tmp'] / 'staging'), can_update=True,
                 spawn=lambda args: spawned.append(args), **kw)
@@ -189,7 +190,13 @@ def test_setup_channel_below_min_runs_installer(appdirs):
     quit_ = []
     u = mk(appdirs, {'latest.json': json.dumps(m).encode(), 'O-Setup-1.3.0.exe': exe}, on_quit=lambda: quit_.append(1))
     assert u.run() == 'setup'
-    assert u.spawned[0][0].endswith('O-Setup-1.3.0.exe') and quit_ == [1]
+    # varsayılan: sessiz kurulum (NSIS /S) betikle — program kapanınca çalışır, bitince program yeniden açılır
+    assert u.spawned[0][0] == '/bin/sh' and quit_ == [1]
+    body = open(u.spawned[0][1]).read()
+    assert 'O-Setup-1.3.0.exe' in body and "'/S'" in body
+    # setup_args=None → eski davranış (argümansız)
+    u2 = mk(appdirs, {'latest.json': json.dumps(m).encode(), 'O-Setup-1.3.0.exe': exe}, setup_args=None)
+    assert u2.run() == 'setup' and u2.spawned[0][0].endswith('O-Setup-1.3.0.exe')
 
 
 def test_no_write_falls_back_to_setup(appdirs, monkeypatch):
@@ -296,3 +303,52 @@ def test_fcpack_cli_survives_non_utf8_console(appdirs, tmp_path):
     assert out.exists() and r.stdout.startswith(b'written ')
     r = subprocess.run([_s.executable, '-m', 'fccore.fcpack'], env=env, capture_output=True)
     assert r.returncode == 2 and b'Traceback' not in r.stderr
+
+
+def test_auto_install_background_then_on_quit(appdirs):
+    """Otomatik: denetim yeni sürüm bulunca sorulmadan arka planda indirir + hazırlar ('ready'), yardımcı HENÜZ başlamaz;
+    program kapanırken apply_pending yardımcıyı yeniden açmadan başlatır. Güncelle (run) → hemen kur + yeniden aç."""
+    import time as _t
+    quit_ = []
+    u = mk(appdirs, auto_install=True, on_quit=lambda: quit_.append(1))
+    states = []
+    u.subscribe(lambda s: states.append(s['status']))
+    u.check(silent=True)
+    for _ in range(200):
+        if u.state['status'] == 'ready':
+            break
+        _t.sleep(0.02)
+    assert u.state['status'] == 'ready'
+    assert 'available' not in states and u.spawned == [] and quit_ == []
+    assert u.check(silent=True)['version'] == '1.3.0' and u.state['status'] == 'ready'
+    assert u.apply_pending(relaunch=False) is True
+    body = open(u.spawned[0][1]).read()
+    assert '--fc-updated' not in body.split('ok 1.3.0')[0].split('mv')[-1] or 'exit 0' in body
+    assert u.apply_pending() is False
+
+
+def test_auto_install_run_applies_now(appdirs):
+    import time as _t
+    quit_ = []
+    u = mk(appdirs, auto_install=True, on_quit=lambda: quit_.append(1))
+    u.check(silent=True)
+    for _ in range(200):
+        if u.state['status'] == 'ready':
+            break
+        _t.sleep(0.02)
+    assert u.run() == 'staged' and quit_ == [1] and len(u.spawned) == 1
+    assert u.state['status'] == 'restarting'
+
+
+@pytest.mark.skipif(sys.platform.startswith('win'), reason='sh betiği')
+def test_swap_script_without_relaunch(tmp_path):
+    app = tmp_path / 'App'
+    new = tmp_path / 'App.new'
+    app.mkdir(); new.mkdir()
+    (app / 'v').write_text('1'); (new / 'v').write_text('2')
+    exe = tmp_path / 'App' / 'run.sh'
+    (new / 'run.sh').write_text('#!/bin/sh\ntouch "%s"\n' % (tmp_path / 'acildi'))
+    script = U.write_swap_script(str(tmp_path / "st"), 999999, 'dir', str(app), str(new), str(exe), str(tmp_path / 'mk'), '2.0.0', windows=False, relaunch=False)
+    subprocess.run(['/bin/sh', script], check=False, timeout=30)
+    assert (app / 'v').read_text() == '2'
+    assert not (tmp_path / 'acildi').exists()

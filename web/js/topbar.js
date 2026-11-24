@@ -56,17 +56,24 @@
       var pbox = FC.progress.box(); float.appendChild(pbox.el);
       var floatBtns = el('div.fc-row'); float.appendChild(floatBtns);
       wrap.appendChild(ub); wrap.appendChild(float); bar.appendChild(wrap);
-      var us = FC.updater.state(), hideT = null, showResult = false;
+      var us = FC.updater.state(), hideT = null, showResult = false, readyShown = false, readyHidden = false;
       function busy(s) { return ['downloading', 'verifying', 'installing', 'restarting'].indexOf(s) >= 0; }
       function drawUpdate() {
         var s = us.status, p = us.plan;
-        ub.className = 'btn small top-act update-act' + (s === 'available' ? ' avail' : '') + (busy(s) || s === 'checking' ? ' busy' : '');
-        ub.disabled = busy(s);
-        ub.innerHTML = icon(s === 'checking' ? 'sync' : 'download', s === 'checking' ? 'fc-spin' : '') + '<span class="top-act-label">' + ui.esc(T('fc.update')) + '</span>' + (s === 'available' ? '<span class="update-dot"></span>' : '');
-        var tip = s === 'available' && p ? T('fc.update.avail', { v: p.version }) : s === 'none' ? T('fc.update.none', { v: us.current }) : T('fc.update.check');
+        var bgBusy = us.bg && !showResult && (busy(s) || s === 'queued');   // arka planda indiriliyor: kullanıcıyı rahatsız etme
+        ub.className = 'btn small top-act update-act' + (s === 'available' || s === 'ready' ? ' avail' : '') + ((busy(s) && !bgBusy) || s === 'checking' ? ' busy' : '');
+        ub.disabled = busy(s) && !us.bg;
+        ub.innerHTML = icon(s === 'checking' ? 'sync' : 'download', s === 'checking' ? 'fc-spin' : '') + '<span class="top-act-label">' + ui.esc(T('fc.update')) + '</span>' + (s === 'available' || s === 'ready' ? '<span class="update-dot"></span>' : '');
+        var tip = s === 'ready' && p ? T('fc.update.ready', { v: p.version }) : s === 'available' && p ? T('fc.update.avail', { v: p.version }) : s === 'none' ? T('fc.update.none', { v: us.current }) : T('fc.update.check');
         ub.title = tip; ub.setAttribute('aria-label', tip);
         floatBtns.innerHTML = '';
-        if (busy(s)) {
+        if (bgBusy) float.hidden = true;
+        else if (s === 'ready' && p) {
+          float.hidden = false; pbox.busy(T('fc.update.ready', { v: p.version })); pbox.el.querySelector('.update-bar').hidden = true;
+          floatBtns.appendChild(el('button.btn.small.primary', { type: 'button', html: icon('download') + ui.esc(T('fc.update.now')), onclick: function () { FC.updater.run().catch(function () {}); } }));
+          if (!readyShown) { readyShown = true; clearTimeout(hideT); hideT = setTimeout(function () { showResult = false; readyHidden = true; drawUpdate(); }, 10000); }
+          if (readyHidden && !showResult) float.hidden = true;
+        } else if (busy(s)) {
           float.hidden = false;
           if (s === 'downloading' && us.progress) {
             pbox.title(us.fallback ? T('fc.update.fallback') : T('fc.update.downloading') + (p ? ' v' + p.version : ''));
@@ -90,7 +97,8 @@
         var bb = pbox.el.querySelector('.update-bar'); if (bb && (busy(s) || s === 'checking')) bb.hidden = false;
       }
       ub.addEventListener('click', function () {
-        if (us.status === 'available') { showResult = false; FC.updater.run().catch(function () { showResult = true; drawUpdate(); }); }
+        if (us.status === 'available' || us.status === 'ready') { showResult = false; FC.updater.run().catch(function () { showResult = true; drawUpdate(); }); }
+        else if (us.bg) { showResult = true; drawUpdate(); }   // arka plandaki indirmenin ilerlemesini göster
         else { showResult = true; FC.updater.check(); drawUpdate(); }
       });
       g.document.addEventListener('mousedown', function (e) { if (showResult && !wrap.contains(e.target)) { showResult = false; drawUpdate(); } });
