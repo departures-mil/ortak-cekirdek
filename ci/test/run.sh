@@ -64,4 +64,40 @@ for v in 1.1.0 1.2.0 1.3.0 1.5.0; do
 done
 grep -q "## العربية" "$W/release-notes.md" && ok "release-notes.md" || bad "release-notes.md"
 ls "$W/out" | sed 's/^/    out: /'
+
+# ---- ek girdiler: EXTRA_FILES, sürüme göre notes_json, MANIFEST_EXTRA_JSON, MANIFEST_HOOK ----
+publish 1.6.0; build 1.7.0
+mkdir -p "$W/in/1.7.0/eski"; printf 'DDSD1a' > "$W/in/1.7.0/eski/App-patch-from-1.0.1.bin"; printf 'DDSD1b' > "$W/in/1.7.0/eski/App-patch-from-1.0.2.bin"
+printf 'not' > "$W/in/1.7.0/benioku.txt"
+cat > "$W/notes.json" <<'J'
+{"1.6.0": {"tr": "eski"}, "1.7.0": {"tr": "Yedi", "en": "Seven", "ar": "سبعة"}}
+J
+cat > "$W/hook.js" <<'J'
+module.exports = { augment(m, repo) { const a = m.assets['win-setup']; return Object.assign({}, m, { installer: { fileName: a.file, repo } }); } };
+J
+(cd "$W" && IN_DIR="$W/in/1.7.0" OUT_DIR="$W/out" VERSION=1.7.0 NOTES_JSON="$W/notes.json" \
+  ASSETS=$'win-app=resources/app.asar\nwin-setup=TestApp Setup *.exe' \
+  EXTRA_FILES=$'eski/App-patch-from-*.bin\nbenioku.txt=BENIOKU-{version}.txt' \
+  MANIFEST_EXTRA_JSON='{"displayVersion":"{version}","url":"{win-setup.url}","size":"{win-setup.size}","date":"{published}"}' \
+  MANIFEST_HOOK="$W/hook.js" node "$CI/release-prep.js" > "$W/log-1.7.0.txt") && ok "1.7.0 ek girdilerle hazırlandı" || { cat "$W/log-1.7.0.txt"; bad "1.7.0 hazırlanamadı"; }
+node -e '
+const fs=require("fs"),m=JSON.parse(fs.readFileSync(process.argv[1]+"/latest.json","utf8"));
+const req=(c,msg)=>{ if(!c){console.error("assert: "+msg);process.exit(1);} };
+req(m.notes.tr==="Yedi"&&m.notes.en==="Seven"&&m.notes.ar==="سبعة","sürüme göre notlar");
+req(m.displayVersion==="1.7.0"&&m.url==="https://github.com/departures-mil/test-app/releases/download/v1.7.0/TestApp-1.7.0-win-setup.exe","ek alanlar");
+req(m.size===m.assets["win-setup"].size&&typeof m.size==="number"&&m.date===m.published,"sayı yer tutucusu");
+req(m.installer&&m.installer.fileName==="TestApp-1.7.0-win-setup.exe"&&m.installer.repo==="departures-mil/test-app","hook");
+req(!JSON.stringify(m.assets).includes("DDSD1")&&!JSON.stringify(m.assets).includes("BENIOKU"),"ek dosyalar manifestte yok");
+for (const f of ["App-patch-from-1.0.1.bin","App-patch-from-1.0.2.bin","BENIOKU-1.7.0.txt"]) req(fs.existsSync(process.argv[1]+"/"+f),"ek dosya yüklenecekler arasında: "+f);
+' "$W/out" && ok "extra_files / notes_json (sürüm) / manifest_extra_json / manifest_hook" || bad "ek girdiler"
+# ezilemeyen alan ve ad çakışması reddedilir
+if (cd "$W" && IN_DIR="$W/in/1.7.0" OUT_DIR="$W/out2" VERSION=1.7.0 PATCH_COUNT=0 ASSETS='win-app=resources/app.asar' \
+     MANIFEST_EXTRA_JSON='{"version":"9.9.9"}' node "$CI/release-prep.js" >/dev/null 2>&1); then bad "version ezildi"; else ok "MANIFEST_EXTRA_JSON zorunlu alanı ezemez"; fi
+if (cd "$W" && IN_DIR="$W/in/1.7.0" OUT_DIR="$W/out2" VERSION=1.7.0 PATCH_COUNT=0 ASSETS='win-app=resources/app.asar=X.bin' \
+     EXTRA_FILES='benioku.txt=X.bin' node "$CI/release-prep.js" >/dev/null 2>&1); then bad "ad çakışması kabul"; else ok "EXTRA_FILES ad çakışması reddedildi"; fi
+# eski biçim notes_json ({tr,en,ar}) aynen çalışır
+printf '{"tr":"düz","en":"flat"}' > "$W/flat.json"
+(cd "$W" && IN_DIR="$W/in/1.7.0" OUT_DIR="$W/out3" VERSION=1.7.0 PATCH_COUNT=0 NOTES_JSON="$W/flat.json" ASSETS='win-app=resources/app.asar' node "$CI/release-prep.js" >/dev/null)
+node -e 'const m=require(process.argv[1]);process.exit(m.notes.tr==="düz"&&m.notes.en==="flat"?0:1)' "$W/out3/latest.json" && ok "notes_json düz biçim" || bad "notes_json düz biçim"
+cmp -s "$CI/reusable-release.yml" "$CI/../.github/workflows/reusable-release.yml" && ok "ci/ ve .github/workflows/ reusable-release.yml aynı" || bad "reusable-release.yml kopyaları farklı"
 echo "sonuç: $pass geçti, $fail başarısız"; [[ $fail == 0 ]]

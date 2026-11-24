@@ -35,12 +35,15 @@ GitHub Actions iş akışıdır** (`on: workflow_call`). Yaptıkları:
 | `files` | evet | satır satır `kanal=yol` ya da `kanal=yol=asset-adı` (asset-adı'nda `{version}`); yol artifact köküne göre, son parçada `*` olabilir |
 | `file_prefix` | | asset adı öneki (varsayılan `app_id`). Varsayılan adlar: `<önek>-<sürüm>-<kanal><uzantı>`, yamalar `<önek>-<kanal>.patch-from-<X.Y.Z>.bin` |
 | `notes_tr` / `notes_en` / `notes_ar` | | sürüm notları |
-| `notes_json` | | `{"tr":..,"en":..,"ar":..}` dosyası (çağıran depoda ya da artifact'ta). Doğrudan notlar boş değilse onu ezer |
+| `notes_json` | | `{"tr":..,"en":..,"ar":..}` ya da sürüme göre `{"X.Y.Z":{"tr":..,"en":..,"ar":..}, ...}` dosyası (çağıran depoda ya da artifact'ta; sürüme göre biçimde bu sürümün anahtarı alınır). Doğrudan notlar boş değilse onu ezer |
 | `min_version` | | varsayılan `1.0.0` |
 | `artifact_pattern` | | varsayılan `release-*` |
 | `patch_count` | | varsayılan 5 |
 | `max_patch_ratio` | | varsayılan `0.70` |
 | `legacy_assets` | | `latest.json`'u olmayan eski release'ler için `kanal=asset-adı` (ör. `win-exe=DesktopDuzenSabitleyici.exe`) |
+| `extra_files` | | `latest.json`'a GİRMEYEN ek asset'ler: satır satır `yol` ya da `yol=asset-adı` (artifact köküne göre, son parçada `*` → 0..n dosya). Ör. eski DDSD1 köprü yamaları: `legacy/DesktopDuzenSabitleyici-patch-from-*.bin` — ikinci iş gerekmez |
+| `manifest_extra_json` | | `latest.json`'a eklenecek üst düzey alanlar (JSON nesnesi). Yer tutucular `{version}` `{tag}` `{repo}` `{published}` `{<kanal>.file\|url\|size\|sha256}`; değer tam `"{win-setup.size}"` ise sayı. `schema/app/version/published/notes/minVersion/assets` ezilemez |
+| `manifest_hook` | | `latest.json`'u son kez değiştiren JS modülü (çağıran depoda): `module.exports = (manifest, repo, {version, tag}) => manifest` (ya da `.augment` / `.manifestHook`). Eski güncelleyicilerin alanları (cv-maker `installer`, `url` …) ayrı bir işe gerek kalmadan eklenir; zorunlu alanlar değişirse hata |
 | `on_existing` | | `skip` (varsayılan) / `fail` |
 | `core_repo` / `core_ref` | | varsayılan `departures-mil/ortak-cekirdek` / `main` |
 | `release_title` | | varsayılan `<app_id> v<version>` |
@@ -182,6 +185,12 @@ yükler; varsayılan `artifact_pattern: release-*` ikisini tek klasörde birleş
 çakışmamalı), `files` iki kanalı da listeler ve `needs: [test, build-win, build-android]`.
 
 ## Entegratörün bilmesi gerekenler
+
+- **NSIS (windows-latest):** `makensis` her imajda hazır olmayabilir; NSIS kullanan derleme adımından önce
+  `choco install nsis -y --no-progress` (sonra `"C:\Program Files (x86)\NSIS\makensis.exe"` ya da PATH'e ekleyin). electron-builder kendi NSIS'ini indirir, gerekmez.
+- **Satır sonları:** Windows derleyicisi (`core.autocrlf=true`) metin dosyalarını CRLF ile çıkarır → paket ve yama tabanı
+  bayt bayt farklı olur, yama hiç tutmaz. Depoya `.gitattributes` ekleyin: `* text=auto eol=lf` (ikili dosyalar için `*.png binary` vb.).
+  Ya da checkout'tan önce `git config --global core.autocrlf false`.
 
 - **Kararlı derleme**: yama, CI'da üretilen tam dosyaya göre doğrulanır; istemci kurulu dosyası bu
   dosyayla bayt bayt aynı olmalı. Electron'da `app.asar`'ı kurulumdan sonra değiştirmeyin.

@@ -22,7 +22,8 @@
  *  FILE_PREFIX    asset adı öneki (varsayılan APP_ID). Varsayılan ad: <önek>-<sürüm>-<kanal><uzantı>
  *  IN_DIR         yolların göreli olduğu klasör (varsayılan .)
  *  OUT_DIR        çıktı klasörü (varsayılan dist-release)
- *  NOTES_JSON     {"tr":..,"en":..,"ar":..} dosyası (isteğe bağlı)
+ *  NOTES_JSON     {"tr":..,"en":..,"ar":..} dosyası (isteğe bağlı) ya da sürüme göre {"X.Y.Z": {"tr","en","ar"}, ...}
+ *                 (bu sürümün anahtarı — "X.Y.Z" ya da "vX.Y.Z" — kullanılır; yoksa notlar boş + uyarı)
  *  NOTES_TR/EN/AR doğrudan notlar (boş değilse NOTES_JSON'u ezer)
  *  MIN_VERSION    varsayılan 1.0.0
  *  PATCH_COUNT    varsayılan 5
@@ -30,6 +31,13 @@
  *  NOTES_OUT      release gövdesi dosyası (varsayılan release-notes.md)
  *  LEGACY_ASSETS  latest.json'u olmayan eski release'ler için "kanal=asset-adı-deseni"
  *                 ({version} yer tutucusu; ör. win-exe=DesktopDuzenSabitleyici.exe)
+ *  EXTRA_FILES    latest.json'a GİRMEYEN ek asset'ler (ör. eski DDSD1 yamaları): satır satır "yol" ya da "yol=asset-adı";
+ *                 yol IN_DIR'e göre, son parçada * olabilir (0..n dosya; joker varken ad verilemez). Ad çakışması → hata.
+ *  MANIFEST_EXTRA_JSON  latest.json'a eklenecek üst düzey alanlar (JSON nesnesi). Metinlerde yer tutucular:
+ *                 {version} {tag} {repo} {published} ve {<kanal>.file|url|size|sha256}; değer tam olarak "{<kanal>.size}"
+ *                 ise sayı olur. schema/app/version/published/notes/minVersion/assets ezilemez.
+ *  MANIFEST_HOOK  latest.json'u son kez değiştiren JS modülü (çağıran depoda): module.exports = (manifest, repo, {version, tag})
+ *                 → manifest (ya da .manifestHook / .augment). Zorunlu alanlar değişirse hata.
  */
 
 const fs = require('fs');
@@ -126,18 +134,97 @@ function parseLegacy() {
   return m;
 }
 
+/** {"tr","en","ar"} ya da sürüme göre {"X.Y.Z": {...}} → bu sürümün notları */
+function pickNotes(j, version) {
+  if (!j || typeof j !== 'object') return {};
+  if (['tr', 'en', 'ar'].some((k) => typeof j[k] === 'string')) return j;
+  const keys = Object.keys(j).filter((k) => /^v?\d+\.\d+\.\d+$/.test(k));
+  if (keys.length) {
+    const hit = j[version] || j['v' + version];
+    if (hit && typeof hit === 'object') return hit;
+    warn(`notes_json: ${version} için not yok (anahtarlar: ${keys.slice(0, 5).join(', ')}${keys.length > 5 ? '…' : ''})`);
+  }
+  return {};
+}
+
 function readNotes() {
   let notes = { tr: '', en: '', ar: '' };
   if (env.NOTES_JSON && env.NOTES_JSON.trim()) {
     const p = path.resolve(IN_DIR, env.NOTES_JSON.trim());
     const p2 = fs.existsSync(p) ? p : path.resolve(env.NOTES_JSON.trim());
-    try { Object.assign(notes, JSON.parse(fs.readFileSync(p2, 'utf8'))); } catch (e) { die('NOTES_JSON okunamadı: ' + e.message); }
+    try { Object.assign(notes, pickNotes(JSON.parse(fs.readFileSync(p2, 'utf8')), VERSION)); } catch (e) { die('NOTES_JSON okunamadı: ' + e.message); }
   }
   for (const k of ['tr', 'en', 'ar']) {
     const v = env['NOTES_' + k.toUpperCase()];
     if (v && v.trim()) notes[k] = v.trim();
   }
   return { tr: String(notes.tr || ''), en: String(notes.en || ''), ar: String(notes.ar || '') };
+}
+
+function parseExtra(taken) {
+  const out = [];
+  for (const l of (env.EXTRA_FILES || '').split(/\r?\n/).map((x) => x.trim()).filter((x) => x && !x.startsWith('#'))) {
+    const parts = l.split('=');
+    if (parts.length > 2) die(`geçersiz EXTRA_FILES satırı: "${l}" (yol[=ad])`);
+    const rel = parts[0].trim(), full = path.resolve(IN_DIR, rel), base = path.basename(full);
+    let hits;
+    if (base.includes('*')) {
+      if (parts[1]) die(`EXTRA_FILES: jokerli yola ad verilemez: "${l}"`);
+      const dir = path.dirname(full);
+      const re = new RegExp('^' + base.split('*').map((x) => x.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('.*') + '$');
+      hits = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => re.test(f) && fs.statSync(path.join(dir, f)).isFile()).sort().map((f) => path.join(dir, f)) : [];
+      if (!hits.length) warn(`EXTRA_FILES: "${rel}" hiçbir dosyayla eşleşmedi`);
+    } else {
+      if (!fs.existsSync(full) || !fs.statSync(full).isFile()) die(`EXTRA_FILES: dosya yok: ${rel}`);
+      hits = [full];
+    }
+    for (const h of hits) {
+      const name = safeName(parts[1] ? parts[1].trim().replace(/\{version\}/g, VERSION) : path.basename(h));
+      if (name === 'latest.json' || taken.has(name)) die(`EXTRA_FILES: asset adı çakışıyor: ${name}`);
+      taken.add(name); out.push({ src: h, name });
+    }
+  }
+  return out;
+}
+
+const RESERVED = ['schema', 'app', 'version', 'published', 'notes', 'minVersion', 'assets'];
+function fillPlaceholders(v, ctx) {
+  if (typeof v === 'string') {
+    const whole = /^\{([a-z0-9-]+)\.size\}$/.exec(v);
+    if (whole) { const a = ctx.manifest.assets[whole[1]]; if (!a) die(`MANIFEST_EXTRA_JSON: kanal yok: ${whole[1]}`); return a.size; }
+    return v.replace(/\{([a-z0-9-]+)\.(file|url|size|sha256)\}/g, (m, ch, f) => {
+      const a = ctx.manifest.assets[ch]; if (!a) die(`MANIFEST_EXTRA_JSON: kanal yok: ${ch}`);
+      return f === 'url' ? `https://github.com/${REPO}/releases/download/${TAG}/${encodeURIComponent(a.file)}` : String(a[f]);
+    }).replace(/\{version\}/g, VERSION).replace(/\{tag\}/g, TAG).replace(/\{repo\}/g, REPO).replace(/\{published\}/g, ctx.manifest.published);
+  }
+  if (Array.isArray(v)) return v.map((x) => fillPlaceholders(x, ctx));
+  if (v && typeof v === 'object') { const o = {}; for (const k of Object.keys(v)) o[k] = fillPlaceholders(v[k], ctx); return o; }
+  return v;
+}
+function extendManifest(manifest) {
+  const raw = (env.MANIFEST_EXTRA_JSON || '').trim();
+  if (raw) {
+    let extra;
+    try { extra = JSON.parse(raw); } catch (e) { die('MANIFEST_EXTRA_JSON geçerli JSON değil: ' + e.message); }
+    if (!extra || typeof extra !== 'object' || Array.isArray(extra)) die('MANIFEST_EXTRA_JSON bir nesne olmalı');
+    for (const k of Object.keys(extra)) {
+      if (RESERVED.includes(k)) die(`MANIFEST_EXTRA_JSON: "${k}" ezilemez`);
+      manifest[k] = fillPlaceholders(extra[k], { manifest });
+    }
+  }
+  const hookPath = (env.MANIFEST_HOOK || '').trim();
+  if (hookPath) {
+    const full = path.resolve(hookPath);
+    if (!fs.existsSync(full)) die('MANIFEST_HOOK bulunamadı: ' + hookPath);
+    const mod = require(full);
+    const fn = typeof mod === 'function' ? mod : (mod.manifestHook || mod.augment);
+    if (typeof fn !== 'function') die('MANIFEST_HOOK bir işlev dışa aktarmalı (module.exports, manifestHook ya da augment)');
+    const before = JSON.stringify(RESERVED.map((k) => manifest[k]));
+    const out = fn(JSON.parse(JSON.stringify(manifest)), REPO, { version: VERSION, tag: TAG }) || manifest;   // cv-maker augment(m, repo) ile uyumlu
+    if (JSON.stringify(RESERVED.map((k) => out[k])) !== before) die('MANIFEST_HOOK zorunlu alanları değiştirdi (' + RESERVED.join(', ') + ')');
+    return out;
+  }
+  return manifest;
 }
 
 // ---- 2) önceki sürümler ----
@@ -174,6 +261,7 @@ function runFcdelta(args) {
 
 function main() {
   const assets = parseAssets();
+  const extras = parseExtra(new Set(assets.map((a) => a.name)));
   const legacy = parseLegacy();
   const notes = readNotes();
   fs.rmSync(OUT_DIR, { recursive: true, force: true });
@@ -259,7 +347,15 @@ function main() {
     fs.rmSync(vdir, { recursive: true, force: true });
   }
 
-  fs.writeFileSync(path.join(OUT_DIR, 'latest.json'), JSON.stringify(manifest, null, 2) + '\n');
+  for (const x of extras) {
+    const dst = path.join(OUT_DIR, x.name);
+    if (fs.existsSync(dst)) die(`EXTRA_FILES: asset adı yama adıyla çakışıyor: ${x.name}`);
+    fs.copyFileSync(x.src, dst);
+    log(`ek dosya: ${x.name} (${fs.statSync(dst).size} bayt, latest.json'a girmez)`);
+  }
+
+  const finalManifest = extendManifest(manifest);
+  fs.writeFileSync(path.join(OUT_DIR, 'latest.json'), JSON.stringify(finalManifest, null, 2) + '\n');
 
   const body = [];
   if (notes.tr) body.push('## Türkçe\n\n' + notes.tr);

@@ -52,7 +52,19 @@ on:
         type: string
         default: ""
       notes_json:
-        description: 'Notlar için {"tr","en","ar"} JSON dosyası (çağıran deponun köküne ya da artifact köküne göre)'
+        description: 'Notlar için {"tr","en","ar"} ya da sürüme göre {"X.Y.Z":{"tr","en","ar"}} JSON dosyası (çağıran deponun köküne ya da artifact köküne göre)'
+        type: string
+        default: ""
+      extra_files:
+        description: 'latest.json''a girmeyen ek asset''ler: satır satır "yol" ya da "yol=ad" (artifact köküne göre; son parçada * olabilir), ör. eski DDSD1 yamaları'
+        type: string
+        default: ""
+      manifest_extra_json:
+        description: 'latest.json''a eklenecek üst düzey alanlar (JSON nesnesi; {version} {tag} {repo} {published} {<kanal>.file|url|size|sha256} yer tutucuları)'
+        type: string
+        default: ""
+      manifest_hook:
+        description: 'latest.json''u son kez değiştiren JS modülü (çağıran depoya göre yol): module.exports = (manifest, repo) => manifest'
         type: string
         default: ""
       min_version:
@@ -146,12 +158,14 @@ jobs:
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Çağıran depoyu al (notes_json için)
-        if: steps.check.outputs.exists == 'false' && inputs.notes_json != ''
+      - name: Çağıran depoyu al (notes_json / manifest_hook için)
+        if: steps.check.outputs.exists == 'false' && (inputs.notes_json != '' || inputs.manifest_hook != '')
         uses: actions/checkout@v4
         with:
           path: caller
-          sparse-checkout: ${{ inputs.notes_json }}
+          sparse-checkout: |
+            ${{ inputs.notes_json }}
+            ${{ inputs.manifest_hook }}
           sparse-checkout-cone-mode: false
 
       - name: ortak-cekirdek araçlarını al (fcdelta)
@@ -200,11 +214,18 @@ jobs:
           PATCH_COUNT: ${{ inputs.patch_count }}
           MAX_RATIO: ${{ inputs.max_patch_ratio }}
           LEGACY_ASSETS: ${{ inputs.legacy_assets }}
+          EXTRA_FILES: ${{ inputs.extra_files }}
+          MANIFEST_EXTRA_JSON: ${{ inputs.manifest_extra_json }}
+          MANIFEST_HOOK_REL: ${{ inputs.manifest_hook }}
         run: |
           set -euo pipefail
           if [[ -n "$NOTES_JSON_REL" ]]; then
             if [[ -f "caller/$NOTES_JSON_REL" ]]; then export NOTES_JSON="$PWD/caller/$NOTES_JSON_REL"
             else export NOTES_JSON="$NOTES_JSON_REL"; fi   # artifact köküne göre
+          fi
+          if [[ -n "$MANIFEST_HOOK_REL" ]]; then
+            if [[ -f "caller/$MANIFEST_HOOK_REL" ]]; then export MANIFEST_HOOK="$PWD/caller/$MANIFEST_HOOK_REL"
+            else export MANIFEST_HOOK="$PWD/release-input/$MANIFEST_HOOK_REL"; fi
           fi
           echo "artifact içeriği:"; find release-input -type f -printf '  %P (%s bayt)\n'
           node .ortak-cekirdek/ci/release-prep.js
