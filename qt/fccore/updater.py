@@ -471,7 +471,7 @@ class Updater:
                         self._spawn(['cmd.exe', '/c', script] if script.endswith('.cmd') else ['/bin/sh', script])
                 except Exception:
                     raise UpdateError('SPAWN_FAILED')
-            if getattr(self, '_deferred', False) and args is not None:
+            if getattr(self, '_deferred', False):
                 self._pending = go
                 return
             go()
