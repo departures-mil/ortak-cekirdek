@@ -1,0 +1,30 @@
+name: Testler
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  delta:
+    name: Delta yama (Node, Python, Java, Dart)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - name: Dart sürümü
+        run: dart --version
+      - name: Çapraz dil testleri
+        run: bash delta/test/run.sh
+      - name: Yayın akışı testi
+        run: bash ci/test/run.sh

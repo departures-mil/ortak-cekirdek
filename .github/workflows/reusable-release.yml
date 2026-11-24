@@ -1,0 +1,231 @@
+# Ortak Çekirdek — yeniden kullanılabilir release iş akışı.
+#
+# KURULUM: bu dosya departures-mil/ortak-cekirdek deposunda
+#   .github/workflows/reusable-release.yml
+# yoluna konmalıdır (GitHub reusable workflow'ları yalnızca .github/workflows altından çağırır).
+#
+# Çağıran uygulama: önce testleri (needs: test) ve derlemeyi yapar, çıktıları TEK bir klasör
+# olarak actions/upload-artifact ile yükler, sonra bu iş akışını çağırır. Ayrıntı: ci/README.md
+#
+# Yaptıkları:
+#  1. v<version> release'i zaten varsa atlar (ya da on_existing: fail ise hata verir).
+#  2. Derleme artifact'larını indirir.
+#  3. fcdelta.js + release-prep.js'i ortak-cekirdek deposundan sabit bir ref ile alır.
+#  4. Son 5 release'in latest.json'unu okuyup her kanal için yama üretir ve CI içinde doğrular
+#     (doğrulanamayan ya da tam dosyanın %70'inden büyük yama yayınlanmaz; yama hatası
+#     release'i ASLA durdurmaz).
+#  5. latest.json (SPEC.md) yazar, release v<version>'ı oluşturup tüm dosyaları yükler.
+name: ortak-release
+
+on:
+  workflow_call:
+    inputs:
+      app_id:
+        description: "Uygulama kimliği (latest.json 'app'), ör. falcon-ofis"
+        type: string
+        required: true
+      version:
+        description: "Sürüm X.Y.Z (v öneki olmadan)"
+        type: string
+        required: true
+      files:
+        description: |
+          Satır satır "kanal=yol" ya da "kanal=yol=asset-adı" (asset-adı içinde {version} olabilir).
+          Yollar artifact kök klasörüne göredir; son parçada * joker olabilir (tam 1 dosya).
+        type: string
+        required: true
+      artifact_pattern:
+        description: "İndirilecek artifact adı/deseni (birden çok artifact tek klasörde birleşir)"
+        type: string
+        default: "release-*"
+      file_prefix:
+        description: "Asset adı öneki (varsayılan app_id), ör. FalconOfis"
+        type: string
+        default: ""
+      notes_tr:
+        type: string
+        default: ""
+      notes_en:
+        type: string
+        default: ""
+      notes_ar:
+        type: string
+        default: ""
+      notes_json:
+        description: 'Notlar için {"tr","en","ar"} JSON dosyası (çağıran deponun köküne ya da artifact köküne göre)'
+        type: string
+        default: ""
+      min_version:
+        description: "latest.json minVersion"
+        type: string
+        default: "1.0.0"
+      release_title:
+        description: "Release başlığı (varsayılan: '<app_id> v<version>')"
+        type: string
+        default: ""
+      patch_count:
+        description: "Kaç önceki sürümden yama üretilsin"
+        type: number
+        default: 5
+      max_patch_ratio:
+        description: "Bu orandan büyük yamalar yayınlanmaz"
+        type: string
+        default: "0.70"
+      legacy_assets:
+        description: 'latest.json''u olmayan eski release''ler için satır satır "kanal=asset-adı" ({version} olabilir)'
+        type: string
+        default: ""
+      on_existing:
+        description: "v<version> zaten varsa: skip | fail"
+        type: string
+        default: "skip"
+      core_repo:
+        description: "fcdelta.js'in alınacağı depo"
+        type: string
+        default: "departures-mil/ortak-cekirdek"
+      core_ref:
+        description: "ortak-cekirdek için sabit ref (etiket/commit önerilir)"
+        type: string
+        default: "main"
+      runs_on:
+        type: string
+        default: "ubuntu-latest"
+    secrets:
+      core_token:
+        description: "ortak-cekirdek özel depoysa okuma yetkili token (genel depoda gerekmez)"
+        required: false
+    outputs:
+      released:
+        description: "'true' ise yeni release oluşturuldu"
+        value: ${{ jobs.release.outputs.released }}
+      tag:
+        value: ${{ jobs.release.outputs.tag }}
+
+jobs:
+  release:
+    runs-on: ${{ inputs.runs_on }}
+    # Aynı depoda iki release aynı anda hazırlanmasın
+    concurrency:
+      group: ortak-release-${{ github.repository }}
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    outputs:
+      released: ${{ steps.publish.outputs.released || 'false' }}
+      tag: ${{ steps.check.outputs.tag }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Sürüm ve mevcut release kontrolü
+        id: check
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+          ON_EXISTING: ${{ inputs.on_existing }}
+        run: |
+          set -euo pipefail
+          v="${VERSION#v}"
+          if ! [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::version X.Y.Z olmalı: '$VERSION'"; exit 1
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "tag=v$v" >> "$GITHUB_OUTPUT"
+          # Önceki başarısız çalıştırmadan kalan taslak (draft) release'i temizle
+          if [[ "$(gh release view "v$v" --repo "$REPO" --json isDraft --jq .isDraft 2>/dev/null || true)" == "true" ]]; then
+            echo "::warning::v$v için yarım kalmış taslak release siliniyor"
+            gh release delete "v$v" --repo "$REPO" --yes
+          fi
+          if gh release view "v$v" --repo "$REPO" >/dev/null 2>&1; then
+            if [[ "$ON_EXISTING" == "fail" ]]; then
+              echo "::error::v$v zaten yayınlanmış"; exit 1
+            fi
+            echo "::notice::v$v zaten var, release atlandı"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Çağıran depoyu al (notes_json için)
+        if: steps.check.outputs.exists == 'false' && inputs.notes_json != ''
+        uses: actions/checkout@v4
+        with:
+          path: caller
+          sparse-checkout: ${{ inputs.notes_json }}
+          sparse-checkout-cone-mode: false
+
+      - name: ortak-cekirdek araçlarını al (fcdelta)
+        if: steps.check.outputs.exists == 'false'
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.core_repo }}
+          ref: ${{ inputs.core_ref }}
+          token: ${{ secrets.core_token || github.token }}
+          path: .ortak-cekirdek
+          sparse-checkout: |
+            delta/node
+            ci
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.exists == 'false'
+        with:
+          node-version: 20
+
+      - name: Derleme çıktılarını indir
+        if: steps.check.outputs.exists == 'false'
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ${{ inputs.artifact_pattern }}
+          merge-multiple: true
+          path: release-input
+
+      - name: Yamalar + latest.json hazırla
+        if: steps.check.outputs.exists == 'false'
+        shell: bash
+        env:
+          FCDELTA: ${{ github.workspace }}/.ortak-cekirdek/delta/node/fcdelta.js
+          APP_ID: ${{ inputs.app_id }}
+          VERSION: ${{ steps.check.outputs.version }}
+          ASSETS: ${{ inputs.files }}
+          FILE_PREFIX: ${{ inputs.file_prefix }}
+          IN_DIR: release-input
+          OUT_DIR: dist-release
+          NOTES_OUT: release-notes.md
+          NOTES_TR: ${{ inputs.notes_tr }}
+          NOTES_EN: ${{ inputs.notes_en }}
+          NOTES_AR: ${{ inputs.notes_ar }}
+          NOTES_JSON_REL: ${{ inputs.notes_json }}
+          MIN_VERSION: ${{ inputs.min_version }}
+          PATCH_COUNT: ${{ inputs.patch_count }}
+          MAX_RATIO: ${{ inputs.max_patch_ratio }}
+          LEGACY_ASSETS: ${{ inputs.legacy_assets }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$NOTES_JSON_REL" ]]; then
+            if [[ -f "caller/$NOTES_JSON_REL" ]]; then export NOTES_JSON="$PWD/caller/$NOTES_JSON_REL"
+            else export NOTES_JSON="$NOTES_JSON_REL"; fi   # artifact köküne göre
+          fi
+          echo "artifact içeriği:"; find release-input -type f -printf '  %P (%s bayt)\n'
+          node .ortak-cekirdek/ci/release-prep.js
+          echo "yüklenecekler:"; ls -la dist-release
+
+      - name: Release oluştur ve yükle
+        id: publish
+        if: steps.check.outputs.exists == 'false'
+        shell: bash
+        env:
+          TAG: ${{ steps.check.outputs.tag }}
+          TITLE: ${{ inputs.release_title }}
+          APP_ID: ${{ inputs.app_id }}
+        run: |
+          set -euo pipefail
+          title="${TITLE:-$APP_ID $TAG}"
+          # latest.json en son yüklenir: istemciler onu görünce tüm dosyalar hazır olur
+          mapfile -t files < <(find dist-release -maxdepth 1 -type f ! -name latest.json | sort)
+          gh release create "$TAG" --repo "$REPO" --target "$GITHUB_SHA" \
+            --title "$title" --notes-file release-notes.md --draft "${files[@]}"
+          gh release upload "$TAG" --repo "$REPO" dist-release/latest.json --clobber
+          gh release edit "$TAG" --repo "$REPO" --draft=false --latest
+          echo "released=true" >> "$GITHUB_OUTPUT"
+          echo "::notice::$TAG yayınlandı (${#files[@]} dosya + latest.json)"

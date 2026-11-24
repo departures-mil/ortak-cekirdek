@@ -1,0 +1,11 @@
+{
+  "name": "@ortak-cekirdek/fcdelta",
+  "version": "1.0.0",
+  "description": "FCD1 binary delta (patch) make/apply — zero dependency",
+  "main": "fcdelta.js",
+  "bin": { "fcdelta": "fcdelta.js" },
+  "files": ["fcdelta.js"],
+  "engines": { "node": ">=18" },
+  "license": "MIT",
+  "private": true
+}

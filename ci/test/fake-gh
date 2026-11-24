@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Sahte gh: yalnızca release-prep.js'in kullandığı "release list" ve "release download".
+# Release'ler $FAKE_GH_ROOT/<etiket>/ klasörleridir; "prerelease" adlı boş dosya ön sürüm işaretidir.
+set -euo pipefail
+[[ "$1" == release ]] || { echo "fake-gh: desteklenmeyen $*" >&2; exit 2; }
+sub="$2"; shift 2
+if [[ "$sub" == list ]]; then
+  limit=30
+  while [[ $# -gt 0 ]]; do case "$1" in --limit) limit="$2"; shift 2;; *) shift;; esac; done
+  # en yeni önce (sürüme göre)
+  ls "$FAKE_GH_ROOT" | sort -V -r | head -n "$limit" | node -e '
+    const fs=require("fs");const lines=fs.readFileSync(0,"utf8").split("\n").filter(Boolean);
+    console.log(JSON.stringify(lines.map(t=>({tagName:t,isPrerelease:fs.existsSync(process.env.FAKE_GH_ROOT+"/"+t+"/prerelease")}))))'
+  exit 0
+fi
+if [[ "$sub" == download ]]; then
+  tag="$1"; shift; pat=""; dir="."
+  while [[ $# -gt 0 ]]; do case "$1" in -p) pat="$2"; shift 2;; -D) dir="$2"; shift 2;; *) shift;; esac; done
+  mkdir -p "$dir"; n=0
+  shopt -s nullglob
+  for f in "$FAKE_GH_ROOT/$tag"/$pat; do cp "$f" "$dir/"; n=$((n+1)); done
+  [[ $n -gt 0 ]] || { echo "no assets match the file pattern" >&2; exit 1; }
+  exit 0
+fi
+echo "fake-gh: desteklenmeyen release $sub" >&2; exit 2
