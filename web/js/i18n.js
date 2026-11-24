@@ -34,6 +34,7 @@
   }
   function lang_() { if (!cur) cur = detect(); return cur; }
   function apply() {
+    if (api.noDoc) return;   // bağımsız eklenti: uygulamanın <html lang/dir> ayarına dokunma
     var d = g.document && g.document.documentElement; if (!d) return;
     d.setAttribute('lang', lang_());
     d.setAttribute('dir', lang_() === 'ar' ? 'rtl' : 'ltr');

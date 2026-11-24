@@ -71,6 +71,7 @@
   }
   function lang_() { if (!cur) cur = detect(); return cur; }
   function apply() {
+    if (api.noDoc) return;   // bağımsız eklenti: uygulamanın <html lang/dir> ayarına dokunma
     var d = g.document && g.document.documentElement; if (!d) return;
     d.setAttribute('lang', lang_());
     d.setAttribute('dir', lang_() === 'ar' ? 'rtl' : 'ltr');
@@ -244,6 +245,8 @@
     });
     return e;
   }
+  /** Modal ve bildirimlerin bağlandığı kök (bağımsız eklentide Shadow DOM; normalde body). */
+  function root() { return (FC.ui && FC.ui.root) || g.document.body; }
   var stack = [];
   /** modal({title, icon, body: Node|string(html), buttons:[{label, cls, onClick(close) → false ile açık kalır}], cls, onClose, dismiss:true}) */
   function modal(o) {
@@ -280,14 +283,14 @@
     if (o.dismiss !== false) back.addEventListener('mousedown', function (e) { if (e.target === back) close(); });
     g.document.addEventListener('keydown', onKey);
     setButtons(o.buttons || [{ label: FC.t ? FC.t('fc.ok') : 'OK', cls: 'primary' }]);
-    back.appendChild(box); g.document.body.appendChild(back);
+    back.appendChild(box); root().appendChild(back);
     var api = { el: box, body: body, title: h, close: close, setButtons: setButtons, setTitle: function (s, ic) { h.innerHTML = (ic ? icon(ic) + ' ' : '') + esc(s); } };
     stack.push(api);
     return api;
   }
   function toast(msg, kind, ms) {
-    var d = g.document, host = d.querySelector('.toasts');
-    if (!host) { host = el('div.toasts', { 'aria-live': 'polite' }); d.body.appendChild(host); }
+    var r = root(), host = r.querySelector('.toasts');
+    if (!host) { host = el('div.toasts', { 'aria-live': 'polite' }); r.appendChild(host); }
     var t = el('div.toast' + (kind ? '.' + kind : ''), { role: 'status', text: msg });
     host.appendChild(t);
     setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, ms || 4200);
@@ -1606,6 +1609,7 @@
      1) aynı bilgisayardaki diğer uygulamalar: Electron ana süreci %APPDATA%/FalconCekirdek/agent/*.json (fcHost.agent)
      2) kullanıcının KENDİ Firebase'i (fc.firebase.config varsa): fc_agent koleksiyonu, REST, sayaçlı
      3) Wi-Fi/LAN eşitlemesi: FC.agent.exportShare() / FC.agent.importShare(obj)
+   Kendi anahtar deposu olan uygulama: start({ai: () => ({provider:'gemini', key}), firebase: () => ({projectId, apiKey})}).
    Yorumlar: önce çevrim dışı kurallar; açıksa ve kullanıcının KENDİ AI anahtarı varsa (fc.ai) çevrim içi yapay zeka
    (günde en çok cfg.aiPerDay çağrı, FC.usage ile sayılır). Teslim: bildirim + uygulama içi panel; ikisi de ayarlardan kapanır. */
 (function (g) {
@@ -1629,6 +1633,7 @@
     if (!id) { id = ''; for (var i = 0; i < 18; i++) id += Math.floor(Math.random() * 16).toString(16); S().set('device', id); }
     return id;
   }
+  function safe(f) { try { return typeof f === 'function' ? f() : f; } catch (e) { return null; } }
   function srcKey() { return (run.app || 'app') + '@' + device(); }
 
   /* ---------- kayıt ---------- */
@@ -1699,7 +1704,7 @@
   }
   function exportShare() { var p = peers(), out = [mine()]; for (var k in p) out.push(p[k]); return { schema: 1, sources: out }; }
   function hostAgent() { var h = g.fcHost; return h && h.agent && typeof h.agent.read === 'function' ? h.agent : null; }
-  function fbCfg() { var c = S().get('firebase.config', null); return c && c.projectId && c.apiKey ? c : null; }
+  function fbCfg() { var c = run.firebase ? safe(run.firebase) : S().get('firebase.config', null); return c && c.projectId && c.apiKey ? c : null; }
   function fsBase(c) { return 'https://firestore.googleapis.com/v1/projects/' + encodeURIComponent(c.projectId) + '/databases/(default)/documents/fc_agent'; }
   function share(force) {
     var t = now().getTime(), last = S().get('agent.shareAt', 0) || 0;
@@ -1805,7 +1810,7 @@
     S().set('agent.notes', all.slice(0, MAX_NOTES));
     return fresh;
   }
-  function aiCfg() { var a = S().get('ai', null); return a && a.key && a.provider ? a : null; }
+  function aiCfg() { var a = run.ai ? safe(run.ai) : S().get('ai', null); return a && a.key && a.provider ? a : null; }
   function aiCallsToday() { var d = S().get('agent.ai', null); return d && d.d === dayKey() ? d.n : 0; }
   function digest(sm) {
     var apps = {};
@@ -1979,7 +1984,7 @@
   /* ---------- başlat ---------- */
   function start(o) {
     o = o || {};
-    if (o.now) run.now = o.now; if (o.fetch) run.fetch = o.fetch; if (o.aiPerDay != null) run.aiPerDay = +o.aiPerDay; if (o.models) run.models = o.models;
+    if (o.now) run.now = o.now; if (o.fetch) run.fetch = o.fetch; if (o.aiPerDay != null) run.aiPerDay = +o.aiPerDay; if (o.models) run.models = o.models; if (o.ai) run.ai = o.ai; if (o.firebase) run.firebase = o.firebase;
     run.app = String(o.app || run.app || 'app'); run.version = String(o.version || ''); if (o.sync) run.syncSeen = true;
     if (run.started) return api; run.started = true;
     if (!cfg().on) return api;
@@ -2006,6 +2011,7 @@
 
   if (FC.i18n) FC.i18n.add({
     tr: {
+      'fc.agent.app.kitaplik': 'Kitaplık', 'fc.agent.app.falcon-ofis': 'Falcon Ofis', 'fc.agent.app.mahzen': 'Mahzen', 'fc.agent.app.bereket-defter': 'Bereket Defter', 'fc.agent.app.organizer': 'Düzenli Evim', 'fc.agent.app.aile-ajandasi': 'Aile Ajandası', 'fc.agent.app.ajandam': 'Ajandam', 'fc.agent.app.cv-maker': 'CV Maker', 'fc.agent.app.sinav-hazirlama': 'Sınav Hazırlama', 'fc.agent.app.baski-hesabi': 'Baskı Hesabı', 'fc.agent.app.comm-calc': 'Comm Calc', 'fc.agent.app.merkezi-servis': 'Merkezi Servis', 'fc.agent.app.ofis-gunlugu': 'Ofis Günlüğü', 'fc.agent.app.pixhawk-log-analiz': 'Pixhawk Log Analiz', 'fc.agent.app.kalori-hesaplayici': 'Kalori Hesaplayıcı', 'fc.agent.app.ing-mufredat': 'İngilizce Müfredat', 'fc.agent.app.iha-mufredat': 'İHA Müfredat', 'fc.agent.app.tv-bakim': 'TV Bakım', 'fc.agent.app.desktop-duzen': 'Masaüstü Düzen',
       'fc.agent.title': 'Asistan Agent', 'fc.agent.desc': 'Tüm uygulamalarınızdaki çalışmanızı izler ve daha verimli çalışmanız için yorum yapar.',
       'fc.agent.on': 'Agent açık', 'fc.agent.notify': 'Önerileri bildirim olarak göster', 'fc.agent.panel': 'Uygulama içi panel (üst çubukta ✦ düğmesi)',
       'fc.agent.ai': 'Çevrim içi yapay zeka yorumları (kendi anahtarınızla; internet yoksa çevrim dışı kurallar)', 'fc.agent.noKey': 'Yapay zeka anahtarı bağlı değil; şimdilik yalnız çevrim dışı yorumlar yapılır. Anahtarı ilk açılış rehberinden ekleyebilirsiniz.',
@@ -2034,6 +2040,7 @@
       'fc.agent.r.update': 'Yeni bir güncelleme hazır. Tek tıkla güncelleyerek son iyileştirmelerden yararlanın.'
     },
     en: {
+      'fc.agent.app.kitaplik': 'Library', 'fc.agent.app.mahzen': 'Cellar', 'fc.agent.app.bereket-defter': 'Bereket Ledger', 'fc.agent.app.organizer': 'Tidy Home', 'fc.agent.app.aile-ajandasi': 'Family Planner', 'fc.agent.app.ajandam': 'My Planner', 'fc.agent.app.sinav-hazirlama': 'Exam Builder', 'fc.agent.app.baski-hesabi': 'Print Cost', 'fc.agent.app.merkezi-servis': 'Central Shuttle', 'fc.agent.app.ofis-gunlugu': 'Office Log', 'fc.agent.app.kalori-hesaplayici': 'Calorie Calculator', 'fc.agent.app.ing-mufredat': 'English Curriculum', 'fc.agent.app.iha-mufredat': 'UAV Curriculum', 'fc.agent.app.tv-bakim': 'TV Care',
       'fc.agent.title': 'Assistant Agent', 'fc.agent.desc': 'Follows your work across all your apps and comments on how to work more effectively.',
       'fc.agent.on': 'Agent on', 'fc.agent.notify': 'Show suggestions as notifications', 'fc.agent.panel': 'In-app panel (✦ button in the top bar)',
       'fc.agent.ai': 'Online AI comments (with your own key; offline rules when there is no internet)', 'fc.agent.noKey': 'No AI key connected; only offline comments for now. You can add a key from the first-run guide.',
@@ -2062,6 +2069,7 @@
       'fc.agent.r.update': 'A new update is ready. Update with one click to get the latest improvements.'
     },
     ar: {
+      'fc.agent.app.kitaplik': 'المكتبة', 'fc.agent.app.mahzen': 'المخزن', 'fc.agent.app.bereket-defter': 'دفتر البركة', 'fc.agent.app.organizer': 'بيتي المنظّم', 'fc.agent.app.aile-ajandasi': 'أجندة العائلة', 'fc.agent.app.ajandam': 'أجندتي', 'fc.agent.app.sinav-hazirlama': 'إعداد الاختبارات', 'fc.agent.app.baski-hesabi': 'حساب الطباعة', 'fc.agent.app.merkezi-servis': 'الخدمة المركزية', 'fc.agent.app.ofis-gunlugu': 'يوميات المكتب', 'fc.agent.app.kalori-hesaplayici': 'حاسبة السعرات', 'fc.agent.app.ing-mufredat': 'منهج الإنجليزية', 'fc.agent.app.iha-mufredat': 'منهج الطائرات المسيّرة', 'fc.agent.app.tv-bakim': 'صيانة التلفاز',
       'fc.agent.title': 'الوكيل المساعد', 'fc.agent.desc': 'يتابع عملك في جميع تطبيقاتك ويقدّم ملاحظات لتعمل بكفاءة أكبر.',
       'fc.agent.on': 'تشغيل الوكيل', 'fc.agent.notify': 'عرض الاقتراحات كإشعارات', 'fc.agent.panel': 'لوحة داخل التطبيق (زر ✦ في الشريط العلوي)',
       'fc.agent.ai': 'ملاحظات الذكاء الاصطناعي عبر الإنترنت (بمفتاحك الخاص؛ قواعد دون اتصال عند انقطاع الإنترنت)', 'fc.agent.noKey': 'لا يوجد مفتاح ذكاء اصطناعي مرتبط؛ الملاحظات الآن دون اتصال فقط. يمكنك إضافة المفتاح من دليل التشغيل الأول.',

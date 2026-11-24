@@ -56,6 +56,8 @@
     });
     return e;
   }
+  /** Modal ve bildirimlerin bağlandığı kök (bağımsız eklentide Shadow DOM; normalde body). */
+  function root() { return (FC.ui && FC.ui.root) || g.document.body; }
   var stack = [];
   /** modal({title, icon, body: Node|string(html), buttons:[{label, cls, onClick(close) → false ile açık kalır}], cls, onClose, dismiss:true}) */
   function modal(o) {
@@ -92,14 +94,14 @@
     if (o.dismiss !== false) back.addEventListener('mousedown', function (e) { if (e.target === back) close(); });
     g.document.addEventListener('keydown', onKey);
     setButtons(o.buttons || [{ label: FC.t ? FC.t('fc.ok') : 'OK', cls: 'primary' }]);
-    back.appendChild(box); g.document.body.appendChild(back);
+    back.appendChild(box); root().appendChild(back);
     var api = { el: box, body: body, title: h, close: close, setButtons: setButtons, setTitle: function (s, ic) { h.innerHTML = (ic ? icon(ic) + ' ' : '') + esc(s); } };
     stack.push(api);
     return api;
   }
   function toast(msg, kind, ms) {
-    var d = g.document, host = d.querySelector('.toasts');
-    if (!host) { host = el('div.toasts', { 'aria-live': 'polite' }); d.body.appendChild(host); }
+    var r = root(), host = r.querySelector('.toasts');
+    if (!host) { host = el('div.toasts', { 'aria-live': 'polite' }); r.appendChild(host); }
     var t = el('div.toast' + (kind ? '.' + kind : ''), { role: 'status', text: msg });
     host.appendChild(t);
     setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, ms || 4200);
