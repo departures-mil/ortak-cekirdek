@@ -104,3 +104,8 @@ def test_announcement_rules():
     assert not fits({'id': 'a', 'altSurum': '2.0'}, 'org', '1.9.9') and fits({'id': 'a', 'ustSurum': '2.0'}, 'org', '1.9.9')
     assert not fits({'id': 'a', 'bitis': '2000-01-01T00:00:00Z'}, 'org', '1')
     assert cmp_loose('v1.2', '1.2.0') == 0
+
+
+def test_version_badge_full_semver(shell):
+    win, sh = shell
+    assert sh.vbadge.text() == 'v1.0.0'
