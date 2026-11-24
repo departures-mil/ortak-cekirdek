@@ -84,7 +84,9 @@
     var b = t.closest('[data-fc-track],button,[role=button],a[href],.nav-item,.tab');
     if (!b || b.closest('[data-fc-agent]')) return;
     var name = b.getAttribute('data-fc-track') || b.getAttribute('aria-label') || b.getAttribute('title') || b.textContent;
-    if (name) track(name);
+    if (!name) return;
+    if (/^\W{0,3}\s*(e[sş]itle|sync|مزامن)/i.test(String(name).trim())) name = /wi.?fi|lan|qr/i.test(name) ? 'fc.sync.lan' : 'fc.sync';
+    track(name);
   }
 
   /* ---------- paylaşım (diğer uygulamalar / cihazlar) ---------- */
@@ -102,7 +104,7 @@
     return n;
   }
   function exportShare() { var p = peers(), out = [mine()]; for (var k in p) out.push(p[k]); return { schema: 1, sources: out }; }
-  function hostAgent() { var h = g.fcHost; return h && h.agent && typeof h.agent.read === 'function' ? h.agent : null; }
+  function hostAgent() { var h = g.fcHost, a = (h && h.agent) || g.fcAgentHost; return a && typeof a.read === 'function' ? a : null; }
   function fbCfg() { var c = run.firebase ? safe(run.firebase) : S().get('firebase.config', null); return c && c.projectId && c.apiKey ? c : null; }
   function fsBase(c) { return 'https://firestore.googleapis.com/v1/projects/' + encodeURIComponent(c.projectId) + '/databases/(default)/documents/fc_agent'; }
   function share(force) {
@@ -278,6 +280,7 @@
   }
   function notify(title, body) {
     try {
+      if (run.notifyFn) { try { if (run.notifyFn(String(title), String(body)) !== false) return true; } catch (e) {} }
       var A = g.AndroidBridge;
       if (A && typeof A.notify === 'function') { A.notify(String(title), String(body)); return true; }
       var N = g.Notification;
@@ -383,7 +386,7 @@
   /* ---------- başlat ---------- */
   function start(o) {
     o = o || {};
-    if (o.now) run.now = o.now; if (o.fetch) run.fetch = o.fetch; if (o.aiPerDay != null) run.aiPerDay = +o.aiPerDay; if (o.models) run.models = o.models; if (o.ai) run.ai = o.ai; if (o.firebase) run.firebase = o.firebase;
+    if (o.now) run.now = o.now; if (o.fetch) run.fetch = o.fetch; if (o.aiPerDay != null) run.aiPerDay = +o.aiPerDay; if (o.models) run.models = o.models; if (o.ai) run.ai = o.ai; if (o.notify) run.notifyFn = o.notify; if (o.firebase) run.firebase = o.firebase;
     run.app = String(o.app || run.app || 'app'); run.version = String(o.version || ''); if (o.sync) run.syncSeen = true;
     if (run.started) return api; run.started = true;
     if (!cfg().on) return api;
@@ -412,8 +415,8 @@
     tr: {
       'fc.agent.app.kitaplik': 'Kitaplık', 'fc.agent.app.falcon-ofis': 'Falcon Ofis', 'fc.agent.app.mahzen': 'Mahzen', 'fc.agent.app.bereket-defter': 'Bereket Defter', 'fc.agent.app.organizer': 'Düzenli Evim', 'fc.agent.app.aile-ajandasi': 'Aile Ajandası', 'fc.agent.app.ajandam': 'Ajandam', 'fc.agent.app.cv-maker': 'CV Maker', 'fc.agent.app.sinav-hazirlama': 'Sınav Hazırlama', 'fc.agent.app.baski-hesabi': 'Baskı Hesabı', 'fc.agent.app.comm-calc': 'Comm Calc', 'fc.agent.app.merkezi-servis': 'Merkezi Servis', 'fc.agent.app.ofis-gunlugu': 'Ofis Günlüğü', 'fc.agent.app.pixhawk-log-analiz': 'Pixhawk Log Analiz', 'fc.agent.app.kalori-hesaplayici': 'Kalori Hesaplayıcı', 'fc.agent.app.ing-mufredat': 'İngilizce Müfredat', 'fc.agent.app.iha-mufredat': 'İHA Müfredat', 'fc.agent.app.tv-bakim': 'TV Bakım', 'fc.agent.app.desktop-duzen': 'Masaüstü Düzen',
       'fc.agent.title': 'Asistan Agent', 'fc.agent.desc': 'Tüm uygulamalarınızdaki çalışmanızı izler ve daha verimli çalışmanız için yorum yapar.',
-      'fc.agent.on': 'Agent açık', 'fc.agent.notify': 'Önerileri bildirim olarak göster', 'fc.agent.panel': 'Uygulama içi panel (üst çubukta ✦ düğmesi)',
-      'fc.agent.ai': 'Çevrim içi yapay zeka yorumları (kendi anahtarınızla; internet yoksa çevrim dışı kurallar)', 'fc.agent.noKey': 'Yapay zeka anahtarı bağlı değil; şimdilik yalnız çevrim dışı yorumlar yapılır. Anahtarı ilk açılış rehberinden ekleyebilirsiniz.',
+      'fc.agent.on': 'Agent açık', 'fc.agent.notify': 'Önerileri bildirim olarak göster', 'fc.agent.panel': 'Uygulama içi panel (✦ düğmesi)',
+      'fc.agent.ai': 'Çevrim içi yapay zeka yorumları (kendi anahtarınızla; internet yoksa çevrim dışı kurallar)', 'fc.agent.noKey': 'Yapay zeka anahtarı bağlı değil; şimdilik yalnız çevrim dışı yorumlar yapılır. Anahtarı programın yapay zeka / kurulum ayarından ekleyebilirsiniz.',
       'fc.agent.freq': 'Yorum sıklığı', 'fc.agent.freq.instant': 'Anlık (yarım saatte bir)', 'fc.agent.freq.daily': 'Günlük', 'fc.agent.freq.weekly': 'Haftalık', 'fc.agent.freq.manual': 'Yalnızca istediğimde',
       'fc.agent.apps': 'İzlenen uygulamalar', 'fc.agent.appsHint': 'Diğer uygulamalar; aynı bilgisayarda, kendi Firebase hesabınızla ya da Wi-Fi eşitlemesiyle göründükçe listeye eklenir.',
       'fc.agent.status': 'Bu hafta: {t} · {n} yorum · bugün yapay zeka: {a}/{m}', 'fc.agent.analyze': 'Şimdi analiz et', 'fc.agent.showNotes': 'Yorumları göster', 'fc.agent.clear': 'Kayıtları sil',
@@ -441,8 +444,8 @@
     en: {
       'fc.agent.app.kitaplik': 'Library', 'fc.agent.app.mahzen': 'Cellar', 'fc.agent.app.bereket-defter': 'Bereket Ledger', 'fc.agent.app.organizer': 'Tidy Home', 'fc.agent.app.aile-ajandasi': 'Family Planner', 'fc.agent.app.ajandam': 'My Planner', 'fc.agent.app.sinav-hazirlama': 'Exam Builder', 'fc.agent.app.baski-hesabi': 'Print Cost', 'fc.agent.app.merkezi-servis': 'Central Shuttle', 'fc.agent.app.ofis-gunlugu': 'Office Log', 'fc.agent.app.kalori-hesaplayici': 'Calorie Calculator', 'fc.agent.app.ing-mufredat': 'English Curriculum', 'fc.agent.app.iha-mufredat': 'UAV Curriculum', 'fc.agent.app.tv-bakim': 'TV Care',
       'fc.agent.title': 'Assistant Agent', 'fc.agent.desc': 'Follows your work across all your apps and comments on how to work more effectively.',
-      'fc.agent.on': 'Agent on', 'fc.agent.notify': 'Show suggestions as notifications', 'fc.agent.panel': 'In-app panel (✦ button in the top bar)',
-      'fc.agent.ai': 'Online AI comments (with your own key; offline rules when there is no internet)', 'fc.agent.noKey': 'No AI key connected; only offline comments for now. You can add a key from the first-run guide.',
+      'fc.agent.on': 'Agent on', 'fc.agent.notify': 'Show suggestions as notifications', 'fc.agent.panel': 'In-app panel (✦ button)',
+      'fc.agent.ai': 'Online AI comments (with your own key; offline rules when there is no internet)', 'fc.agent.noKey': 'No AI key connected; only offline comments for now. You can add a key in the program's AI / setup settings.',
       'fc.agent.freq': 'Comment frequency', 'fc.agent.freq.instant': 'Instant (every half hour)', 'fc.agent.freq.daily': 'Daily', 'fc.agent.freq.weekly': 'Weekly', 'fc.agent.freq.manual': 'Only when I ask',
       'fc.agent.apps': 'Watched apps', 'fc.agent.appsHint': 'Other apps are added as they appear on the same computer, on your own Firebase account or via Wi-Fi sync.',
       'fc.agent.status': 'This week: {t} · {n} comments · AI today: {a}/{m}', 'fc.agent.analyze': 'Analyse now', 'fc.agent.showNotes': 'Show comments', 'fc.agent.clear': 'Clear records',
@@ -470,8 +473,8 @@
     ar: {
       'fc.agent.app.kitaplik': 'المكتبة', 'fc.agent.app.mahzen': 'المخزن', 'fc.agent.app.bereket-defter': 'دفتر البركة', 'fc.agent.app.organizer': 'بيتي المنظّم', 'fc.agent.app.aile-ajandasi': 'أجندة العائلة', 'fc.agent.app.ajandam': 'أجندتي', 'fc.agent.app.sinav-hazirlama': 'إعداد الاختبارات', 'fc.agent.app.baski-hesabi': 'حساب الطباعة', 'fc.agent.app.merkezi-servis': 'الخدمة المركزية', 'fc.agent.app.ofis-gunlugu': 'يوميات المكتب', 'fc.agent.app.kalori-hesaplayici': 'حاسبة السعرات', 'fc.agent.app.ing-mufredat': 'منهج الإنجليزية', 'fc.agent.app.iha-mufredat': 'منهج الطائرات المسيّرة', 'fc.agent.app.tv-bakim': 'صيانة التلفاز',
       'fc.agent.title': 'الوكيل المساعد', 'fc.agent.desc': 'يتابع عملك في جميع تطبيقاتك ويقدّم ملاحظات لتعمل بكفاءة أكبر.',
-      'fc.agent.on': 'تشغيل الوكيل', 'fc.agent.notify': 'عرض الاقتراحات كإشعارات', 'fc.agent.panel': 'لوحة داخل التطبيق (زر ✦ في الشريط العلوي)',
-      'fc.agent.ai': 'ملاحظات الذكاء الاصطناعي عبر الإنترنت (بمفتاحك الخاص؛ قواعد دون اتصال عند انقطاع الإنترنت)', 'fc.agent.noKey': 'لا يوجد مفتاح ذكاء اصطناعي مرتبط؛ الملاحظات الآن دون اتصال فقط. يمكنك إضافة المفتاح من دليل التشغيل الأول.',
+      'fc.agent.on': 'تشغيل الوكيل', 'fc.agent.notify': 'عرض الاقتراحات كإشعارات', 'fc.agent.panel': 'لوحة داخل التطبيق (زر ✦)',
+      'fc.agent.ai': 'ملاحظات الذكاء الاصطناعي عبر الإنترنت (بمفتاحك الخاص؛ قواعد دون اتصال عند انقطاع الإنترنت)', 'fc.agent.noKey': 'لا يوجد مفتاح ذكاء اصطناعي مرتبط؛ الملاحظات الآن دون اتصال فقط. يمكنك إضافة المفتاح من إعدادات الذكاء الاصطناعي / الإعداد في البرنامج.',
       'fc.agent.freq': 'تكرار الملاحظات', 'fc.agent.freq.instant': 'فوري (كل نصف ساعة)', 'fc.agent.freq.daily': 'يومي', 'fc.agent.freq.weekly': 'أسبوعي', 'fc.agent.freq.manual': 'فقط عندما أطلب',
       'fc.agent.apps': 'التطبيقات المتابَعة', 'fc.agent.appsHint': 'تُضاف التطبيقات الأخرى عند ظهورها على الحاسوب نفسه أو في حساب Firebase الخاص بك أو عبر مزامنة Wi-Fi.',
       'fc.agent.status': 'هذا الأسبوع: {t} · {n} ملاحظة · الذكاء الاصطناعي اليوم: {a}/{m}', 'fc.agent.analyze': 'حلّل الآن', 'fc.agent.showNotes': 'عرض الملاحظات', 'fc.agent.clear': 'حذف السجلات',

@@ -6,9 +6,12 @@
        lang: () => localStorage.getItem('kitaplik.dil') || 'tr',      // ya da 'tr'; değişince kendisi izler
        theme: 'auto',                                                  // 'dark' | 'light' | 'auto' | () => …
        settings: document.getElementById('ayarlarSonu'),               // kartın ekleneceği yer (Admin ile iletişim'den ÖNCE)
+       settingsBefore: ['✉️ Yönetici ile İletişim', 'Contact the administrator', 'التواصل مع المسؤول'],   // ya da: bu kartın önüne
        button: 'float',                                                // ya da üst çubuktaki bir kapsayıcı öğe
        ai: () => ({provider: 'gemini', key: localStorage.getItem('kitaplik.geminiKey')}),   // kullanıcının KENDİ anahtarı
-       firebase: () => ({projectId, apiKey})                           // kullanıcının KENDİ projesi (isteğe bağlı)
+       firebase: () => ({projectId, apiKey}),                          // kullanıcının KENDİ projesi (isteğe bağlı)
+       notify: (baslik, metin) => { AndroidKopru.notifyNow(baslik, metin); },   // isteğe bağlı: yerel bildirim
+       sync: true                                                      // uygulamada Eşitle düğmesi var
      });
    Tam çekirdeği (FC.init) kullanan uygulamada bu dosya GEREKMEZ. */
 (function (g) {
@@ -52,20 +55,50 @@
     var main = shadowHost(g.document.body, true);
     FC.ui.root = main;
     sync();
-    FC.agent.start({ app: o.app, version: o.version, ai: o.ai, firebase: o.firebase, sync: o.sync, models: o.models, aiPerDay: o.aiPerDay });
+    FC.agent.start({ app: o.app, version: o.version, notify: o.notify, ai: o.ai, firebase: o.firebase, sync: o.sync, models: o.models, aiPerDay: o.aiPerDay });
     if (o.button !== false) {
       var b = FC.agent.button();
       if (o.button && o.button.nodeType) { shadowHost(o.button, false).appendChild(b); b.classList.add('fc-agent-inline'); }
       else { b.classList.add('fc-agent-fab'); main.appendChild(b); }
     }
     if (o.settings) settings(o.settings);
+    if (o.settingsBefore) watchSettings(o.settingsBefore, o.cardSelector);
     sync();
     st.timer = setInterval(sync, 1500);
     return api;
   }
   /** Ayarlar kartını verilen kapsayıcıya ekler (Admin ile iletişim kartından önce koyun). */
   function settings(parent) { var r = shadowHost(parent, false); r.appendChild(FC.agent.card()); sync(); return r; }
-  var api = { mount: mount, settings: settings, refresh: sync, agent: function () { return FC.agent; }, track: function (n, k) { FC.agent.track(n, k); }, task: function (a, b, c) { FC.agent.task(a, b, c); }, show: function () { return FC.agent.show(); },
+  /** Ayarlar sayfası dinamikse: metni verilen kartın (ör. "Yönetici ile İletişim") hemen ÖNÜNE kartı koyar; sayfa yeniden
+      çizildikçe tekrar yerleştirir. texts: ['✉️ Yönetici ile İletişim', 'Contact the administrator', 'التواصل مع المسؤول'] */
+  function watchSettings(texts, sel) {
+    sel = sel || '.card,details,section,fieldset,.settings-card,.panel';
+    var list = (Array.isArray(texts) ? texts : [texts]).map(function (t) { return String(t).trim(); }).filter(Boolean), host = null, pend = 0;
+    function find() {
+      var w = g.document.createTreeWalker(g.document.body, 4, null), n;
+      while ((n = w.nextNode())) {
+        var t = (n.nodeValue || '').trim(); if (!t || t.length > 80) continue;
+        for (var i = 0; i < list.length; i++) if (t === list[i] || t.indexOf(list[i]) === 0) {
+          var e = n.parentNode; if (!e || !e.closest || e.closest('[data-fc-agent]')) break;
+          return e.closest(sel) || e;
+        }
+      }
+      return null;
+    }
+    function place() {
+      pend = 0;
+      var target = find(); if (!target || !target.parentNode) return;
+      if (host && host.isConnected && host.nextElementSibling === target) return;
+      if (!host || !host.isConnected) { var wrap = g.document.createElement('div'); wrap.setAttribute('data-fc-agent', ''); wrap.className = (target.className || '').split(' ').filter(function (c) { return /^(col|grid|span)/.test(c); }).join(' '); target.parentNode.insertBefore(wrap, target); settings(wrap); host = wrap; }
+      else target.parentNode.insertBefore(host, target);
+    }
+    var mo = new g.MutationObserver(function (recs) {
+      for (var i = 0; i < recs.length; i++) { var t = recs[i].target; if (t && t.closest && t.closest('[data-fc-agent]')) continue; if (!pend) pend = setTimeout(place, 250); return; }
+    });
+    mo.observe(g.document.body, { childList: true, subtree: true });
+    place();
+  }
+  var api = { mount: mount, watchSettings: watchSettings, settings: settings, refresh: sync, agent: function () { return FC.agent; }, track: function (n, k) { FC.agent.track(n, k); }, task: function (a, b, c) { FC.agent.task(a, b, c); }, show: function () { return FC.agent.show(); },
     exportShare: function () { return FC.agent.exportShare(); }, importShare: function (x) { return FC.agent.importShare(x); } };
   g.FCAgent = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
