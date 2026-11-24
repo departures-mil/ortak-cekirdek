@@ -1,0 +1,559 @@
+[
+ {
+  "name": "tek tarafta olan eklenir; aynı içerik çakışma değil",
+  "out": {
+   "records": [
+    {
+     "id": 1,
+     "a": 1,
+     "updatedAt": 9
+    },
+    {
+     "id": 2,
+     "b": 2,
+     "updatedAt": 3
+    }
+   ],
+   "conflicts": [],
+   "archived": []
+  }
+ },
+ {
+  "name": "çakışmada yeni kalır (ISO)",
+  "out": {
+   "records": [
+    {
+     "id": "k",
+     "ad": "uzak",
+     "updatedAt": "2026-11-21T10:00:00Z"
+    }
+   ],
+   "conflicts": [
+    {
+     "id": "k",
+     "kept": {
+      "id": "k",
+      "ad": "uzak",
+      "updatedAt": "2026-11-21T10:00:00Z"
+     },
+     "lost": {
+      "id": "k",
+      "ad": "yerel",
+      "updatedAt": "2026-11-20T10:00:00Z"
+     },
+     "keptFrom": "remote"
+    }
+   ],
+   "archived": []
+  }
+ },
+ {
+  "name": "çakışma ters yön",
+  "out": {
+   "records": [
+    {
+     "id": "k",
+     "ad": "uzak",
+     "updatedAt": "2026-11-21T10:00:00Z"
+    }
+   ],
+   "conflicts": [
+    {
+     "id": "k",
+     "kept": {
+      "id": "k",
+      "ad": "uzak",
+      "updatedAt": "2026-11-21T10:00:00Z"
+     },
+     "lost": {
+      "id": "k",
+      "ad": "yerel",
+      "updatedAt": "2026-11-20T10:00:00Z"
+     },
+     "keptFrom": "local"
+    }
+   ],
+   "archived": []
+  }
+ },
+ {
+  "name": "eşit zaman a-b",
+  "out": {
+   "records": [
+    {
+     "id": 1,
+     "v": "b",
+     "updatedAt": 7
+    }
+   ],
+   "conflicts": [
+    {
+     "id": "1",
+     "kept": {
+      "id": 1,
+      "v": "b",
+      "updatedAt": 7
+     },
+     "lost": {
+      "id": 1,
+      "v": "a",
+      "updatedAt": 7
+     },
+     "keptFrom": "remote"
+    }
+   ],
+   "archived": []
+  }
+ },
+ {
+  "name": "eşit zaman b-a",
+  "out": {
+   "records": [
+    {
+     "id": 1,
+     "v": "b",
+     "updatedAt": 7
+    }
+   ],
+   "conflicts": [
+    {
+     "id": "1",
+     "kept": {
+      "id": 1,
+      "v": "b",
+      "updatedAt": 7
+     },
+     "lost": {
+      "id": 1,
+      "v": "a",
+      "updatedAt": 7
+     },
+     "keptFrom": "local"
+    }
+   ],
+   "archived": []
+  }
+ },
+ {
+  "name": "uzak silme arşivler",
+  "out": {
+   "records": [
+    {
+     "id": 1,
+     "ad": "Ali",
+     "not": "önemli",
+     "updatedAt": 200,
+     "archived": true,
+     "archivedAt": 200
+    }
+   ],
+   "conflicts": [],
+   "archived": [
+    {
+     "id": "1",
+     "record": {
+      "id": 1,
+      "ad": "Ali",
+      "not": "önemli",
+      "updatedAt": 200,
+      "archived": true,
+      "archivedAt": 200
+     },
+     "deletedAt": 200,
+     "from": "remote"
+    }
+   ]
+  }
+ },
+ {
+  "name": "yerel silme arşivler (yakınsama)",
+  "out": {
+   "records": [
+    {
+     "id": 1,
+     "ad": "Ali",
+     "not": "önemli",
+     "updatedAt": 200,
+     "archived": true,
+     "archivedAt": 200
+    }
+   ],
+   "conflicts": [],
+   "archived": [
+    {
+     "id": "1",
+     "record": {
+      "id": 1,
+      "ad": "Ali",
+      "not": "önemli",
+      "updatedAt": 200,
+      "archived": true,
+      "archivedAt": 200
+     },
+     "deletedAt": 200,
+     "from": "local"
+    }
+   ]
+  }
+ },
+ {
+  "name": "silmeden sonra düzenlenen canlı kalır",
+  "out": {
+   "records": [
+    {
+     "id": 1,
+     "ad": "yeni",
+     "updatedAt": 300
+    }
+   ],
+   "conflicts": [],
+   "archived": []
+  }
+ },
+ {
+  "name": "iki tarafta silinmiş",
+  "out": {
+   "records": [],
+   "conflicts": [],
+   "archived": []
+  }
+ },
+ {
+  "name": "yalnız silme işareti",
+  "out": {
+   "records": [],
+   "conflicts": [],
+   "archived": []
+  }
+ },
+ {
+  "name": "arşivli kalır",
+  "out": {
+   "records": [
+    {
+     "id": 1,
+     "a": 1,
+     "updatedAt": 5,
+     "archived": true,
+     "archivedAt": 5
+    }
+   ],
+   "conflicts": [
+    {
+     "id": "1",
+     "kept": {
+      "id": 1,
+      "a": 1,
+      "updatedAt": 5,
+      "archived": true,
+      "archivedAt": 5
+     },
+     "lost": {
+      "id": 1,
+      "a": 1,
+      "updatedAt": 1
+     },
+     "keptFrom": "local"
+    }
+   ],
+   "archived": []
+  }
+ },
+ {
+  "name": "özel anahtarlar ve ISO",
+  "out": {
+   "records": [
+    {
+     "key": "x",
+     "ua": "2026-02-01T00:00:00.000Z",
+     "v": 1,
+     "arsiv": true,
+     "arsivZaman": "2026-02-01T00:00:00.000Z"
+    }
+   ],
+   "conflicts": [],
+   "archived": [
+    {
+     "id": "x",
+     "record": {
+      "key": "x",
+      "ua": "2026-02-01T00:00:00.000Z",
+      "v": 1,
+      "arsiv": true,
+      "arsivZaman": "2026-02-01T00:00:00.000Z"
+     },
+     "deletedAt": 1769904000000,
+     "from": "remote"
+    }
+   ]
+  }
+ },
+ {
+  "name": "ISO milisaniye + silme ISO deletedAt",
+  "out": {
+   "records": [
+    {
+     "id": "a",
+     "t": "x",
+     "updatedAt": "2026-03-01T21:00:00.000Z",
+     "archived": true,
+     "archivedAt": "2026-03-01T21:00:00.000Z"
+    }
+   ],
+   "conflicts": [],
+   "archived": [
+    {
+     "id": "a",
+     "record": {
+      "id": "a",
+      "t": "x",
+      "updatedAt": "2026-03-01T21:00:00.000Z",
+      "archived": true,
+      "archivedAt": "2026-03-01T21:00:00.000Z"
+     },
+     "deletedAt": 1772398800000,
+     "from": "remote"
+    }
+   ]
+  }
+ },
+ {
+  "name": "iç içe nesne, anahtar sırası farklı ama aynı içerik",
+  "out": {
+   "records": [
+    {
+     "id": 1,
+     "o": {
+      "a": [
+       1,
+       {
+        "x": 2,
+        "y": 1
+       }
+      ],
+      "b": 2
+     },
+     "updatedAt": 4
+    }
+   ],
+   "conflicts": [],
+   "archived": []
+  }
+ },
+ {
+  "name": "ondalık sayılar ve null",
+  "out": {
+   "records": [
+    {
+     "id": 1,
+     "f": 0.30000000000000004,
+     "g": 1.5,
+     "h": null,
+     "updatedAt": 10
+    }
+   ],
+   "conflicts": [
+    {
+     "id": "1",
+     "kept": {
+      "id": 1,
+      "f": 0.30000000000000004,
+      "g": 1.5,
+      "h": null,
+      "updatedAt": 10
+     },
+     "lost": {
+      "id": 1,
+      "f": 0.1,
+      "g": 1.5,
+      "h": null,
+      "updatedAt": 10
+     },
+     "keptFrom": "remote"
+    }
+   ],
+   "archived": []
+  }
+ },
+ {
+  "name": "unicode eşitlik kırıcı",
+  "out": {
+   "records": [
+    {
+     "id": 1,
+     "s": "Çağrı ğüşiöç ￿",
+     "updatedAt": 1
+    }
+   ],
+   "conflicts": [
+    {
+     "id": "1",
+     "kept": {
+      "id": 1,
+      "s": "Çağrı ğüşiöç ￿",
+      "updatedAt": 1
+     },
+     "lost": {
+      "id": 1,
+      "s": "Çağrı ğüşiöç 😀",
+      "updatedAt": 1
+     },
+     "keptFrom": "remote"
+    }
+   ],
+   "archived": []
+  }
+ },
+ {
+  "name": "kimliksiz ve null kayıt atlanır, yinelenen id son kazanır",
+  "out": {
+   "records": [
+    {
+     "id": "5",
+     "v": 3,
+     "updatedAt": 3
+    }
+   ],
+   "conflicts": [
+    {
+     "id": "5",
+     "kept": {
+      "id": "5",
+      "v": 3,
+      "updatedAt": 3
+     },
+     "lost": {
+      "id": 5,
+      "v": 2,
+      "updatedAt": 2
+     },
+     "keptFrom": "remote"
+    }
+   ],
+   "archived": []
+  }
+ },
+ {
+  "name": "sayısal zaman damgası metin",
+  "out": {
+   "records": [
+    {
+     "id": 1,
+     "v": "a",
+     "updatedAt": "1700000000000"
+    }
+   ],
+   "conflicts": [
+    {
+     "id": "1",
+     "kept": {
+      "id": 1,
+      "v": "a",
+      "updatedAt": "1700000000000"
+     },
+     "lost": {
+      "id": 1,
+      "v": "b",
+      "updatedAt": 1600000000000
+     },
+     "keptFrom": "local"
+    }
+   ],
+   "archived": []
+  }
+ },
+ {
+  "name": "zamansız kayıtlar",
+  "out": {
+   "records": [
+    {
+     "id": 1,
+     "v": "b"
+    }
+   ],
+   "conflicts": [
+    {
+     "id": "1",
+     "kept": {
+      "id": 1,
+      "v": "b"
+     },
+     "lost": {
+      "id": 1,
+      "v": "a"
+     },
+     "keptFrom": "remote"
+    }
+   ],
+   "archived": []
+  }
+ },
+ {
+  "name": "sıra: yerel önce, sonra yalnız uzaktakiler",
+  "out": {
+   "records": [
+    {
+     "id": "c",
+     "updatedAt": 1
+    },
+    {
+     "id": "a",
+     "updatedAt": 1
+    },
+    {
+     "id": "b",
+     "updatedAt": 1
+    },
+    {
+     "id": "d",
+     "updatedAt": 1
+    }
+   ],
+   "conflicts": [],
+   "archived": []
+  }
+ },
+ {
+  "name": "silme deletedAt yok updatedAt eski → canlı",
+  "out": {
+   "records": [
+    {
+     "id": 1,
+     "v": 1,
+     "updatedAt": 50
+    }
+   ],
+   "conflicts": [],
+   "archived": []
+  }
+ },
+ {
+  "name": "arşiv zamanı ISO, canlı kayıt sayısal",
+  "out": {
+   "records": [
+    {
+     "id": 1,
+     "v": 1,
+     "updatedAt": 1767225600000,
+     "archived": true,
+     "archivedAt": "2026-01-01T00:00:00.000Z"
+    }
+   ],
+   "conflicts": [],
+   "archived": [
+    {
+     "id": "1",
+     "record": {
+      "id": 1,
+      "v": 1,
+      "updatedAt": 1767225600000,
+      "archived": true,
+      "archivedAt": "2026-01-01T00:00:00.000Z"
+     },
+     "deletedAt": 1767225600000,
+     "from": "remote"
+    }
+   ]
+  }
+ }
+]

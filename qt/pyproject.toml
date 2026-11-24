@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fccore"
+version = "1.0.0"
+description = "Ortak Çekirdek — Python/PySide6 sürümü (Falcon görünümü, üst çubuk, güncelleme, iletişim, çökme raporu)"
+requires-python = ">=3.10"
+dependencies = ["PySide6>=6.5"]
+
+[tool.setuptools]
+packages = ["fccore"]
+
+[tool.setuptools.package-data]
+fccore = ["fonts/*.ttf", "fonts/*.txt"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::pytest.PytestUnhandledThreadExceptionWarning"]
