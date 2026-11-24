@@ -3,7 +3,7 @@
 #   ./run.sh          -> standart testler
 #   BIG=1 ./run.sh    -> ek olarak 100 MB hız testi
 #   HUGE=1 ./run.sh   -> ek olarak 250 MB bellek/akış testi
-# Node ile yama üretir; Node, Python, Java (varsa), Dart (varsa) ile uygular; tüm çıktıların
+# Node ile yama üretir; Node, Python, Java (varsa), Dart (varsa), Go (varsa) ile uygular; tüm çıktıların
 # SHA-256'sı yeni dosyayla aynı olmalı.
 set -euo pipefail
 
@@ -36,6 +36,18 @@ if command -v javac >/dev/null 2>&1 && command -v java >/dev/null 2>&1; then
     ok "javac ApkPatchInstaller.java (Android taslaklarıyla, Java 8)"
   else
     cat "$WORK/javac2.log"; bad "javac ApkPatchInstaller.java"
+  fi
+  # androidx'siz sürüm (FcApkProvider): üretilmiş dosya güncel mi + taslaklarla derleme + validName testi
+  node "$DELTA/java/noandroidx/gen.js" --check >/dev/null && ok "noandroidx/ApkPatchInstaller.java güncel" || bad "noandroidx üretilmiş dosya eski (node delta/java/noandroidx/gen.js)"
+  mkdir -p "$WORK/ncls"
+  if javac -nowarn --release 8 -d "$WORK/ncls" -sourcepath "$HERE/android-stubs" \
+       "$DELTA/java/FcDelta.java" "$DELTA/java/noandroidx/ApkPatchInstaller.java" "$DELTA/java/noandroidx/FcApkProvider.java" \
+       "$HERE/java/FcApkProviderTest.java" 2>"$WORK/javac3.log"; then
+    ok "javac noandroidx (ApkPatchInstaller + FcApkProvider, androidx yok)"
+    if grep -q '^import androidx' "$DELTA/java/noandroidx/"*.java; then bad "noandroidx androidx içe aktarıyor"; fi
+    java -cp "$WORK/ncls" FcApkProviderTest >/dev/null && ok "FcApkProvider.validName" || bad "FcApkProvider.validName"
+  else
+    cat "$WORK/javac3.log"; bad "javac noandroidx"
   fi
 fi
 command -v dart >/dev/null 2>&1 && HAVE_DART=1
@@ -105,6 +117,22 @@ for c in "${CASES[@]}"; do
   fi
   rm -f "$WORK"/o.* "$WORK/p.py.patch"
 done
+
+# go apply: bütün durumların Node yamaları Go uygulayıcısına (delta/go) verilir
+if command -v go >/dev/null 2>&1; then
+  mkdir -p "$WORK/govec"
+  for c in "${CASES[@]}"; do
+    [[ "$c" == big-* ]] && continue
+    cp "$WORK/in/$c.old" "$WORK/govec/$c.src"; cp "$WORK/in/$c.new" "$WORK/govec/$c.dst"; cp "$WORK/$c.patch" "$WORK/govec/$c.bin"
+  done
+  if (cd "$DELTA/go" && go vet ./... && FCD1_TESTDATA="$WORK/govec" go test -count=1 ./...) >"$WORK/go.log" 2>&1; then
+    ok "go apply (delta/go, $(ls "$WORK/govec"/*.bin | wc -l) Node vektörü + ret testleri)"
+  else
+    cat "$WORK/go.log"; bad "go test (delta/go)"
+  fi
+else
+  echo "not: go bulunamadı, Go uygulayıcısı bu ortamda test edilmedi"
+fi
 
 echo "[negatif testler]"
 c=insert-middle; old="$WORK/in/$c.old"; new="$WORK/in/$c.new"; p="$WORK/$c.patch"

@@ -8,7 +8,7 @@ on:
 
 jobs:
   delta:
-    name: Delta yama (Node, Python, Java, Dart)
+    name: Delta yama (Node, Python, Java, Dart, Go)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,8 +22,15 @@ jobs:
       - uses: dart-lang/setup-dart@v1
         with:
           sdk: stable
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: false
       - name: Dart sürümü
         run: dart --version
+      - name: Go FCD1 uygulayıcısı (delta/go)
+        working-directory: delta/go
+        run: go vet ./... && go test -count=1 ./...
       - name: Çapraz dil testleri
         run: bash delta/test/run.sh
       - name: Yayın akışı testi
@@ -37,6 +44,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Üretilen dosyalar güncel mi (tokens, core-scoped.css)
+        working-directory: web
+        run: node tools/build-tokens.js --check && node tools/scope-css.js --check
       - name: Arayüz testleri
         working-directory: web
         run: npm test

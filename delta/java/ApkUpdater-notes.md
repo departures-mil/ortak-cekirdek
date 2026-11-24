@@ -3,6 +3,8 @@
 Dosyalar: `FcDelta.java` (FCD1 uygulayıcı, saf Java 8) + `ApkPatchInstaller.java` (Android
 yardımcısı). İkisini uygulamanın kaynağına `com/departuresmil/ortak/` altına kopyalayın
 (ya da paket adını değiştirin). Dış bağımlılık yok; yalnızca `androidx.core` (FileProvider).
+**androidx'siz kabuk** (Gradle'sız, apktool/aapt2+d8): `noandroidx/ApkPatchInstaller.java` + `noandroidx/FcApkProvider.java`
+kullanın (aşağıda "androidx'siz sürüm").
 
 ## Akış
 
@@ -72,3 +74,18 @@ yüzde, "X.X MB / Y.Y MB", "kalan Z.Z MB", "N.N MB/sn"; `patchMode` iken
 - minSdk 21 önerilir (`splitSourceDirs` API 21). Kod Java 8 dil düzeyindedir, lambda yok.
 - Kurulumdan sonra uygulama süreci yükleyici tarafından sonlandırılır; güncellenmiş sürüm
   ilk açılışta `cleanup()` çağırmalıdır.
+
+## androidx'siz sürüm (`noandroidx/`)
+
+Gradle'sız kabuklarda (kitaplik, organizer) androidx yok. `noandroidx/ApkPatchInstaller.java` aynı API'dir (ana dosyadan
+`node delta/java/noandroidx/gen.js` ile üretilir, `delta/test/run.sh` güncelliğini denetler); APK'yı paket yükleyiciye
+`content://<authority>/updates/<ad>.apk` adresiyle verir. Bu adresi `FcApkProvider` sunar (yalnız `cacheDir/updates/*.apk`, salt okunur):
+```xml
+<provider android:name="com.departuresmil.ortak.FcApkProvider" android:authorities="${applicationId}.guncelleme"
+          android:exported="false" android:grantUriPermissions="true"/>
+```
+```java
+ApkPatchInstaller up = new ApkPatchInstaller(ctx, ctx.getPackageName() + ".guncelleme");
+```
+`FcDelta.java` + iki dosya `com/departuresmil/ortak/` altına kopyalanır. Web arayüzü kullanılıyorsa indirme+kurulum Java'da yapılır ve
+`FC.host.update.run(plan, ilerleme)` ile çekirdeğe bağlanır (bkz. `web/README.md` → Android).
