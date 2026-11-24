@@ -65,3 +65,22 @@ Her uygulamada `FC.agent` (web/js/agent.js) açıktır; `FC.init` başlatır, `F
 - **Yorum:** çevrim dışı kurallar (artış/düşüş, en çok kullanılan uygulama, gece çalışması, mola, verimli saat, tekrar eden işlem, eşitleme yok, hata, kullanılmayan uygulama, bölünmüş oturum, 3 günden eski açık iş, süreklilik, bekleyen güncelleme) + kullanıcının kendi AI anahtarıyla çevrim içi öneri (gemini/openai/anthropic/groq; yalnız sayı özeti gider; günde en çok 4 çağrı; hata/çevrimdışı → yalnız kurallar). Aynı yorum 3 gün tekrar edilmez.
 - **Teslim:** bildirim (Electron/tarayıcı `Notification`, Android `AndroidBridge.notify(baslik, metin)` varsa) + uygulama içi panel. Ayarlar: agent aç/kapa, bildirim, panel, çevrim içi AI, sıklık (anlık/günlük/haftalık/istenince; varsayılan günlük), izlenen uygulamalar, şimdi analiz et, kayıtları sil.
 - Android yerel tarafı: `@JavascriptInterface void notify(String title, String body)` → NotificationCompat (kanal "Asistan Agent").
+
+### Asistan Agent — sürümler ve uygulama durumu (devir notu, 2026-11-24)
+Agent oturumu yalnız bu depoda çalışır; uygulama depolarına yayın/gönderim ortak-cekirdek oturumunundur.
+- **Sürümler** (hepsi aynı kurallar, aynı veri biçimi, metinler `web/js/agent.js`'ten ÜRETİLİR — `cd web && npm run build`):
+  `web/js/agent.js` (FC.agent, tam çekirdek) · `web/dist/fc-agent.js` (bağımsız eklenti, Shadow DOM; tam çekirdek yüklüyse kendini kapatır) ·
+  `python/fc_agent.py` (PySide6) · `dotnet/FcAgent.cs` + `FcAgentDil.cs` (WinForms) · `flutter/fc_agent.dart` + `fc_agent_dil.dart`.
+  `test/agent-ports.test.js` üretilmiş dosyaların güncel ve metin/kural anahtarlarının dört sürümde tutarlı olduğunu denetler.
+- **Uygulamalarda bugünkü durum** (çekirdeğe geçerken bağımsız eklenti dosyaları silinmeli; FC.init agent'ı zaten başlatır):
+  - Tam çekirdek (FC.agent): Ajandam 5.7.0, Merkezi Servis 1.2.0.
+  - Bağımsız eklenti `fc-agent.js` + `agent-baslat.js` (+ Electron'da `fc-agent-main.js`/preload `fcAgentHost`): Kitaplık 2.14.1, CV Maker 2.0.7,
+    Baskı Hesabı 1.13, Comm Calc 1.12.2, Sınav Hazırlama 1.9.11, Falcon Ofis 1.57.0 (masaüstü+telefon), Mahzen 3.8 (sayfaya gömülü),
+    İHA Müfredat 3.3, İngilizce Müfredat 2.5.1, Organizer telefon 2.1.0.13, Bereket telefon 1.19+.
+    Ofis Günlüğü: kaynakta eklendi, YAYINLANMADI (imza anahtarı claude.ai projesinde).
+  - Python: Bereket masaüstü 1.20, Organizer masaüstü 2.1.0.13, Pixhawk 1.0.7 (CI'ya gönderildi; sonucu denetlenmedi).
+  - .NET: Desktop Düzen Sabitleyici 1.0.12. Flutter: Kalori Hesaplayıcı 1.0.12 (CI'ya gönderildi; derleme sonucu denetlenmedi —
+    yerelde Dart/Flutter yoktu, `flutter analyze` hatası olursa `lib/services/fc_agent.dart` düzeltilmeli).
+  - TV Bakım: GitHub'da kaynağı yok, eklenmedi.
+- **Bilinen sınırlar:** Android'de uygulamalar arası ortak klasör yok (paylaşım Firebase/LAN ile); Flutter/.NET sürümünde bildirim
+  uygulama içi SnackBar / tepsi balonudur; .NET sürümünde çevrim içi AI yok (uygulamada anahtar ayarı yok).
