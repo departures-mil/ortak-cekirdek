@@ -787,10 +787,14 @@ class Agent(QObject):
                 b.raise_()
             except RuntimeError:
                 self.btns.remove(b)
-        for f in list(self.cards):
-            try:
-                f()
-            except RuntimeError:
+        for f in list(self.cards):   # sinyal içinde silinmesin diye bir sonraki döngüde yeniden kur
+            QTimer.singleShot(0, lambda f=f: self._safe_build(f))
+
+    def _safe_build(self, f):
+        try:
+            f()
+        except RuntimeError:
+            if f in self.cards:
                 self.cards.remove(f)
 
     def show(self, parent=None):
@@ -865,12 +869,14 @@ class Agent(QObject):
             pass
         self._emit()
 
-    def card(self, parent=None):
+    def card(self, parent=None, header=True):
         """Ayarlar kartı (QFrame). Dil değişince program kartı yeniden kurarsa yeni metinlerle çizilir."""
         box = QFrame(parent)
         box.setObjectName('fcAgentCard')
-        box.setFrameShape(QFrame.StyledPanel)
+        box.setFrameShape(QFrame.StyledPanel if header else QFrame.NoFrame)
         v = QVBoxLayout(box)
+        if not header:
+            v.setContentsMargins(0, 0, 0, 0)
 
         def build():
             while v.count():
@@ -882,15 +888,15 @@ class Agent(QObject):
                     QWidget().setLayout(it.layout())
             o = self.config()
             box.setLayoutDirection(Qt.RightToLeft if self.lang() == 'ar' else Qt.LeftToRight)
-            h = QLabel('✦ ' + self.T('title')); h.setObjectName('h2'); h.setStyleSheet('font-weight:600;font-size:15px'); v.addWidget(h)
-            d = QLabel(self.T('desc')); d.setWordWrap(True); v.addWidget(d)
+            if header:
+                h = QLabel('✦ ' + self.T('title')); h.setObjectName('h2'); h.setStyleSheet('font-weight:600;font-size:15px'); v.addWidget(h)
+                d = QLabel(self.T('desc')); d.setWordWrap(True); v.addWidget(d)
 
             def chk(key, label):
                 cb = QCheckBox(label); cb.setChecked(bool(o[key])); cb.setProperty('fcAgent', True)
 
                 def ch(state, key=key):
                     self.configure(**{key: bool(state)})
-                    QTimer.singleShot(0, build)
                 cb.stateChanged.connect(ch)
                 v.addWidget(cb)
             chk('on', self.T('on'))
@@ -940,4 +946,6 @@ class Agent(QObject):
                 wr = QWidget(); wr.setLayout(row); v.addWidget(wr)
             q = QLabel('<small>%s</small>' % self.T('privacy')); q.setWordWrap(True); v.addWidget(q)
         build()
+        self.cards.append(build)
+        box.destroyed.connect(lambda *_: build in self.cards and self.cards.remove(build))
         return box

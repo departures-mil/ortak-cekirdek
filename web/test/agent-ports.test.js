@@ -7,7 +7,7 @@ const root = path.join(__dirname, '..', '..');
 const read = (f) => fs.readFileSync(path.join(root, f), 'utf8');
 
 test('üretilmiş dosyalar güncel (npm run build sonrası değişmez)', () => {
-  const files = ['python/fc_agent.py', 'dotnet/FcAgentDil.cs', 'flutter/fc_agent_dil.dart'];
+  const files = ['python/fc_agent.py', 'qt/fccore/_agent_engine.py', 'dotnet/FcAgentDil.cs', 'flutter/fc_agent_dil.dart'];
   const before = files.map(read);
   for (const t of ['build-agent-py.js', 'build-agent-net.js', 'build-agent-dart.js']) cp.execFileSync(process.execPath, [path.join(__dirname, '..', 'tools', t)]);
   files.forEach((f, i) => assert.strictEqual(read(f), before[i], f + ' eski: cd web && npm run build'));

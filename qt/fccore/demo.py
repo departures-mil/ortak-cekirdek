@@ -135,6 +135,7 @@ def main(argv=None):
     ap.add_argument('--page', default='settings')
     ap.add_argument('--float', action='store_true', help='güncelleme penceresini açık göster')
     ap.add_argument('--onboarding', type=int, default=-1, help='sihirbazı şu adımda aç (ekran görüntüsü)')
+    ap.add_argument('--agent', action='store_true', help='Asistan Agent panelini örnek verilerle aç (ekran görüntüsü)')
     a = ap.parse_args(argv)
     app = QApplication.instance() or QApplication(sys.argv[:1])
     data = tempfile.mkdtemp(prefix='fcdemo-') if a.shot else None
@@ -179,7 +180,7 @@ def main(argv=None):
     gv = QVBoxLayout(grid_holder)
     gv.setContentsMargins(0, 0, 0, 0)
     tb.mount(sync={'on_click': lambda s: (tb.set_sync('syncing'), QTimer.singleShot(1500, lambda: tb.set_sync('idle')))},
-             lan={'on_click': lambda s: tb.set_lan('off' if s == 'on' else 'on')}, update=core.updates, before=[core.ann.button()])
+             lan={'on_click': lambda s: tb.set_lan('off' if s == 'on' else 'on')}, update=core.updates, before=[b for b in (core.agent and core.agent.button(), core.ann.button()) if b])
     tb.set_sync('idle', 3)
     tb.set_lan('on')
 
@@ -206,6 +207,20 @@ def main(argv=None):
         if a.onboarding >= 0:
             from fccore import onboarding
             QTimer.singleShot(50, lambda: onboarding.open(start_step=a.onboarding))
+
+        if a.agent and core.agent:
+            def agent_demo():
+                from fccore import _agent_engine as AE
+                ag = core.agent
+                for _ in range(95):
+                    ag.tick(active=True)
+                for _ in range(32):
+                    ag.track('Kayıt ekle')
+                ag.import_share([{'app': 'falcon-ofis', 'dev': 'demo', 'u': 1, 'days': {AE.day_key(): {'act': 240, 'ses': 3, 'h': [0] * 23 + [70]}}},
+                                 {'app': 'kitaplik', 'dev': 'demo', 'u': 1, 'days': {AE.day_key(): {'act': 80, 'ses': 2}}}])
+                ag.analyze(True, wait=True)
+                ag.show(win)
+            QTimer.singleShot(50, agent_demo)
 
         def shoot():
             app.processEvents()

@@ -9,4 +9,6 @@ const dil = fs.readFileSync(tmp, 'utf8');
 const src = fs.readFileSync(path.join(root, 'python', 'fc_agent_src.py'), 'utf8');
 const out = src.replace('DIL = __DIL__', 'DIL = ' + JSON.stringify(JSON.parse(dil), null, 1));
 fs.writeFileSync(path.join(root, 'python', 'fc_agent.py'), '# ÜRETİLDİ — düzenlemeyin: python/fc_agent_src.py + web/js/agent.js → web/tools/build-agent-py.js\n' + out);
-console.log('python/fc_agent.py');
+// fccore (qt/) aynı motoru kullanır: fccore/agent.py bunu fccore'un dil/depo/görünümüne bağlar
+fs.writeFileSync(path.join(root, 'qt', 'fccore', '_agent_engine.py'), '# ÜRETİLDİ — düzenlemeyin: python/fc_agent_src.py + web/js/agent.js → web/tools/build-agent-py.js\n' + out);
+console.log('python/fc_agent.py, qt/fccore/_agent_engine.py');

@@ -40,7 +40,8 @@ win = FcWindow('Organizer'); shell = Shell(win, name='Organizer', tag='Ajanda ve
 shell.nav_group('Genel'); shell.page('kayitlar', 'Kayıtlar', 'box', KayitlarSayfasi())          # metin ya da i18n anahtarı
 shell.page('ayarlar', 'fc.settings.about', 'settings', settings.build(cards=[benim_kartim], usage={'firebase': True, 'ai': False},
            about={'version': __version__, 'on_check': core.updates.check}))
-tb = shell.topbar.mount(sync={'on_click': esitle}, lan={'on_click': wifi_ac}, update=core.updates, before=[core.ann.button()])
+tb = shell.topbar.mount(sync={'on_click': esitle}, lan={'on_click': wifi_ac}, update=core.updates,
+                       before=[core.agent.button(), core.ann.button()])
 win.start(); core.after_show(); sys.exit(app.exec())
 ```
 
@@ -59,6 +60,16 @@ win.start(); core.after_show(); sys.exit(app.exec())
   kullanılacaksa `fccore.init(..., data_dir=yol)`. Anahtarlar web ile aynı (`lang`, `theme`, `scheme`, `fontScale`, `firebase.config`, `ai` …).
 - Pencere: `FcWindow` her açılışta `showFullScreen()`. Orta → çalışma alanının yarısı, ortada; tekrar → tam ekran. Tam ekran düğmesi
   tam ekran ↔ büyütülmüş. Üst çubuğun boş yerinden sürüklenir (`startSystemMove`), çift tık = Orta. Orta kipinde sağ altta boyut tutamağı.
+
+## Asistan Agent (`fccore.agent`)
+
+`fccore.init(..., agent=True)` (varsayılan) başlatır → `core.agent`. Üst çubuğa `core.agent.button()` (✦, okunmamış rozeti),
+`settings.build()` "Asistan Agent" kartını kendisi ekler (Kullanım Limitleri'nden önce; `agent=False` ile kapatılır).
+Motor `fccore/_agent_engine.py` ÜRETİLİR (`cd ../web && node tools/build-agent-py.js`; kaynak `../python/fc_agent_src.py` + web metinleri),
+web `FC.agent`, .NET ve Flutter sürümleriyle aynı kurallar ve veri biçimi. Yalnızca sayılar tutulur; aynı bilgisayardaki programlar
+`%APPDATA%\FalconCekirdek\agent\` ile paylaşır. Yapay zekâ: depodaki `ai` (`{'provider','key','model'}`, kullanıcının KENDİ anahtarı) ya da
+`agent={'ai': lambda: {...}}`. İsteğe bağlı: `core.agent.track('Kayıt ekle')`, `core.agent.task(id, 'start'|'done', etiket)`,
+LAN: `paket['agent'] = core.agent.export_share()` → `core.agent.import_share(...)`. Demo: `python -m fccore.demo --agent --shot x.png`.
 
 ## Güncelleme (PyInstaller one-dir)
 
@@ -108,7 +119,6 @@ hiddenimports += ['PySide6.QtSvg']               # simgeler QSvgRenderer ile çi
 
 ## Bilinen farklar / eksikler
 
-- Asistan Agent (`FC.agent`) bu sürümde yok (web'de var).
 - Dar pencere (<900 px) için web'deki çekmece menü yok; Orta kipinde içerik kırpılabilir.
 - Gölge (box-shadow) yalnız modalda; açılır pencere ve bildirimlerde düz kenarlık.
 - Windows takas betiği (`.cmd`) bu ortamda yalnız metin olarak test edildi; aynı akışın `sh` sürümü uçtan uca (takas + geri alma) test edildi.

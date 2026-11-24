@@ -70,7 +70,7 @@ Her uygulamada `FC.agent` (web/js/agent.js) açıktır; `FC.init` başlatır, `F
 Agent oturumu yalnız bu depoda çalışır; uygulama depolarına yayın/gönderim ortak-cekirdek oturumunundur.
 - **Sürümler** (hepsi aynı kurallar, aynı veri biçimi, metinler `web/js/agent.js`'ten ÜRETİLİR — `cd web && npm run build`):
   `web/js/agent.js` (FC.agent, tam çekirdek) · `web/dist/fc-agent.js` (bağımsız eklenti, Shadow DOM; tam çekirdek yüklüyse kendini kapatır) ·
-  `python/fc_agent.py` (PySide6) · `dotnet/FcAgent.cs` + `FcAgentDil.cs` (WinForms) · `flutter/fc_agent.dart` + `fc_agent_dil.dart`.
+  `python/fc_agent.py` (PySide6, tek dosya) · `qt/fccore/agent.py` (fccore'a bağlı; motor `_agent_engine.py` üretilir) · `dotnet/FcAgent.cs` + `FcAgentDil.cs` (WinForms) · `flutter/fc_agent.dart` + `fc_agent_dil.dart`.
   `test/agent-ports.test.js` üretilmiş dosyaların güncel ve metin/kural anahtarlarının dört sürümde tutarlı olduğunu denetler.
 - **Uygulamalarda bugünkü durum** (çekirdeğe geçerken bağımsız eklenti dosyaları silinmeli; FC.init agent'ı zaten başlatır):
   - Tam çekirdek (FC.agent): Ajandam 5.7.0, Merkezi Servis 1.2.0.
