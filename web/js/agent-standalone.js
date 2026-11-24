@@ -80,7 +80,9 @@
         var t = (n.nodeValue || '').trim(); if (!t || t.length > 80) continue;
         for (var i = 0; i < list.length; i++) if (t === list[i] || t.indexOf(list[i]) === 0) {
           var e = n.parentNode; if (!e || !e.closest || e.closest('[data-fc-agent]')) break;
-          return e.closest(sel) || e;
+          var c = e.closest(sel);   // kart yalnızca başlık kartın EN ÜSTÜNDEYSE seçilir (yoksa başlığın önüne konur)
+          if (c && (c === g.document.body || c.textContent.trim().indexOf(list[i]) > 3)) c = null;
+          return c || e;
         }
       }
       return null;
