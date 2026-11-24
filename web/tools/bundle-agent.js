@@ -14,8 +14,11 @@ function shadowCss(css) {
 }
 const css = shadowCss(read('css/tokens.css') + '\n' + read('css/core.css'));
 const mods = ['storage', 'i18n', 'ui', 'agent', 'agent-standalone'];
-const out = '/* Asistan Agent — bağımsız eklenti (Shadow DOM). Kaynak: ortak-cekirdek/web/js. Üreten: tools/bundle-agent.js */\n' +
+const out = '/* Asistan Agent — bağımsız eklenti (Shadow DOM). Kaynak: ortak-cekirdek/web/js. Üreten: tools/bundle-agent.js\n' +
+  '   Tam çekirdek (fc-core.js) zaten yüklüyse hiçbir şey yapmaz: agent orada FC.init ile gelir. */\n' +
+  'if (typeof FC === "undefined" || !FC.topbar) {\n' +
   '(function(g){(g.FC=g.FC||{})._agentCss=' + JSON.stringify(css) + ';})(typeof globalThis!=="undefined"?globalThis:this);\n' +
-  mods.map((n) => `/* ---- ${n}.js ---- */\n` + read('js/' + n + '.js')).join('\n');
+  mods.map((n) => `/* ---- ${n}.js ---- */\n` + read('js/' + n + '.js')).join('\n') +
+  '\n} else if (typeof window !== "undefined" && !window.FCAgent) { window.FCAgent = { mount: function () { return window.FCAgent; }, settings: function () {}, watchSettings: function () {}, refresh: function () {}, agent: function () { return FC.agent; }, track: function (n, k) { FC.agent && FC.agent.track(n, k); }, task: function (a, b, c) { FC.agent && FC.agent.task(a, b, c); }, show: function () { return FC.agent && FC.agent.show(); }, exportShare: function () { return FC.agent.exportShare(); }, importShare: function (x) { return FC.agent.importShare(x); } }; }\n';
 fs.writeFileSync(path.join(dir, 'dist', 'fc-agent.js'), out);
 console.log('dist/fc-agent.js', out.length, 'bayt');
