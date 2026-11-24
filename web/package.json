@@ -6,7 +6,7 @@
   "main": "dist/fc-core.js",
   "module": "js/fc.mjs",
   "scripts": {
-    "test": "node --test test/*.test.js",
+    "test": "node --check js/agent-standalone.js && node --check dist/fc-agent.js && node --test test/*.test.js",
     "build": "node tools/build-tokens.js && node tools/bundle.js && node tools/bundle-agent.js",
     "check": "node tools/build-tokens.js --check && node --test test/*.test.js"
   },

@@ -78,10 +78,10 @@
       var w = g.document.createTreeWalker(g.document.body, 4, null), n;
       while ((n = w.nextNode())) {
         var t = (n.nodeValue || '').trim(); if (!t || t.length > 80) continue;
-        for (var i = 0; i < list.length; i++) if (t === list[i] || t.indexOf(list[i]) === 0) {
+        for (var i = 0; i < list.length; i++) { var at = t.indexOf(list[i]); if (at < 0 || at > 4 || t.length > list[i].length + 6) continue;
           var e = n.parentNode; if (!e || !e.closest || e.closest('[data-fc-agent]')) break;
           var c = e.closest(sel);   // kart yalnızca başlık kartın EN ÜSTÜNDEYSE seçilir (yoksa başlığın önüne konur)
-          if (c && (c === g.document.body || c.textContent.trim().indexOf(list[i]) > 3)) c = null;
+          if (c && (c === g.document.body || c.textContent.trim().indexOf(list[i]) > 6)) c = null;
           return c || e;
         }
       }
@@ -90,7 +90,7 @@
     function place() {
       pend = 0;
       var target = find(); if (!target || !target.parentNode) return;
-      if (host && host.isConnected && host.nextElementSibling === target) return;
+      if (host && host.isConnected) { var sib = target, k = 0; while ((sib = sib.previousElementSibling) && k++ < 3) if (sib === host) return; }   // diğer eklentilerle yer kavgası yapma
       if (!host || !host.isConnected) { var wrap = g.document.createElement('div'); wrap.setAttribute('data-fc-agent', ''); wrap.className = (target.className || '').split(' ').filter(function (c) { return /^(col|grid|span)/.test(c); }).join(' '); target.parentNode.insertBefore(wrap, target); settings(wrap); host = wrap; }
       else target.parentNode.insertBefore(host, target);
     }
