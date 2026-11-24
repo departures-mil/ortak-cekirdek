@@ -1,5 +1,11 @@
 /* FC.host — kabuk köprüsü. Arayüz kodu yalnızca FC.host'u çağırır; altındaki kabuk değişebilir.
      electron : fc-preload.js'in açtığı window.fcHost
+     shell    : kendi masaüstü kabuğu (Go + WebView2 / Edge --app vb.) — window.fcHost'u kendisi kurar ve kind:'shell' verir
+                (ayrıca shell:'go' gibi bir ad). Sözleşme electron ile AYNI: window{minimize,half,toggleFullscreen,close,getState,onState},
+                update{channel, applyPatch(bytes,meta), installFull(bytes,meta), run?(plan,ilerleme)}, net{download(url,ilerleme)}
+                (hata kodu e.code ya da iletide 'HTTP_404' → güncel), version, platform, openExternal?, onMainError?.
+                Farkı: <html> fc-host-shell alır (Electron'a özgü -webkit-app-region sürükleme kuralları uygulanmaz),
+                tanılama/iletişim kayıtlarında 'shell/<platform>' görünür. Eski kabuklar kind:'electron' demeye devam edebilir.
      android  : window.AndroidBridge (yalnızca var olan yöntemler kullanılır; Küçült / Orta gizlenir, Kapat → moveTaskToBack)
      browser  : düz tarayıcı — Tam ekran Fullscreen API ile, diğer pencere düğmeleri gizli, güncelleme = indirme sayfası.
    <html> öğesine fc-host-<tür> sınıfı eklenir.
@@ -14,9 +20,10 @@
 
   function electron(h) {
     var w = h.window || {};
-    return {
-      kind: 'electron', platform: h.platform || 'win32',
-      can: { minimize: !!w.minimize, half: !!w.half, fullscreen: !!w.toggleFullscreen, close: !!w.close, update: !!(h.update && h.update.applyPatch) },
+    var hu = h.update || {};
+    var r = {
+      kind: h.kind === 'shell' ? 'shell' : 'electron', shell: h.kind === 'shell' ? String(h.shell || 'custom') : '', platform: h.platform || 'win32',
+      can: { minimize: !!w.minimize, half: !!w.half, fullscreen: !!w.toggleFullscreen, close: !!w.close, update: !!(hu.applyPatch || hu.run) },
       window: {
         minimize: function () { return w.minimize ? w.minimize() : noop(); },
         half: function () { return w.half ? w.half() : noop(); },
@@ -26,15 +33,17 @@
         onState: function (cb) { return w.onState ? w.onState(cb) : function () {}; }
       },
       update: {
-        channel: (h.update && h.update.channel) || 'win-app',
-        applyPatch: function (bytes, meta) { return h.update.applyPatch(bytes, meta); },
-        installFull: function (bytes, meta) { return h.update.installFull(bytes, meta); }
+        channel: hu.channel || 'win-app',
+        applyPatch: function (bytes, meta) { return hu.applyPatch ? hu.applyPatch(bytes, meta) : unsupported(); },
+        installFull: function (bytes, meta) { return hu.installFull ? hu.installFull(bytes, meta) : unsupported(); }
       },
       net: h.net && h.net.download ? { download: function (u, p) { return h.net.download(u, p); } } : null,
       onMainError: function (cb) { return h.onMainError ? h.onMainError(cb) : function () {}; },
       openExternal: h.openExternal ? function (u) { return h.openExternal(u); } : null,
-      version: function () { return h.version || ''; }
+      version: function () { return typeof h.version === 'function' ? String(h.version() || '') : (h.version || ''); }
     };
+    if (typeof hu.run === 'function') r.update.run = function (plan, onProgress) { return hu.run(plan, onProgress); };   // kabuk her şeyi kendisi yapar
+    return r;
   }
 
   function b64(bytes) {
@@ -116,7 +125,7 @@
   host.redetect = function () { var n = detect(); for (var k in n) host[k] = n[k]; mark(); return host; };
   function mark() {
     var de = g.document && g.document.documentElement; if (!de) return;
-    de.classList.remove('fc-host-electron', 'fc-host-android', 'fc-host-browser');
+    de.classList.remove('fc-host-electron', 'fc-host-shell', 'fc-host-android', 'fc-host-browser');
     de.classList.add('fc-host-' + host.kind);
     if (host.kind === 'android') de.classList.add('is-android');
   }

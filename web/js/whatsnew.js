@@ -2,7 +2,8 @@
      FC.whatsnew.start({version:'1.57.0'})   // açılışta bir kez
      FC.whatsnew.show()                       // Ayarlar'dan elle
    Notlar FC.updater kurulumdan ÖNCE fc.whatsnew.pending'e yazar ({version, notes:{tr,en,ar}}); burada o sürümle
-   eşleşirse geçerli dilde gösterilir. İlk kurulumda pencere açılmaz. opts.notes ile (ör. gömülü CHANGELOG) verilebilir. */
+   eşleşirse geçerli dilde gösterilir. İlk kurulumda pencere açılmaz. opts.notes ile (ör. gömülü CHANGELOG) verilebilir:
+     {tr,en,ar} ya da function(version) → {tr,en,ar}|null. FC.init({whatsnew:{notes, delayMs}}) bunları buraya iletir. */
 (function (g) {
   'use strict';
   var FC = g.FC = g.FC || {};
@@ -32,9 +33,18 @@
     if (!v) return false;
     var seen = S().get('whatsnew.seen', null);
     S().set('whatsnew.seen', v);
-    if (!seen || seen === v) return false;   // ilk kurulum ya da aynı sürüm
-    if (FC.updater && FC.updater.cmp) { try { if (FC.updater.cmp(v, seen) <= 0) return false; } catch (e) {} }
+    if (!shouldShow(v, seen)) return false;
     setTimeout(function () { show(v); }, cfg.delayMs == null ? 900 : cfg.delayMs);
+    return true;
+  }
+  /** Saf karar: ilk kurulum (seen yok) ya da aynı/eski sürüm → false. Eski uygulamaların semver olmayan "görüldü" değerleri
+      ("3.3", 3.3, "2.1.0.4") karşılaştırılamaz → yeni sürüm sayılır, pencere gösterilir. */
+  function shouldShow(v, seen) {
+    if (seen === null || seen === undefined || seen === '') return false;
+    v = String(v); seen = String(seen);
+    if (seen === v) return false;
+    var U = FC.updater;
+    if (U && U.cmp && U.parse && U.parse(v) && U.parse(seen)) return U.cmp(v, seen) > 0;
     return true;
   }
   function button() {
@@ -43,7 +53,7 @@
     b.addEventListener('click', function () { show(); }); draw(); FC.i18n.onChange(draw);
     return b;
   }
-  var api = { start: start, show: show, button: button };
+  var api = { start: start, show: show, button: button, shouldShow: shouldShow };
   FC.whatsnew = api;
   if (typeof module === 'object' && module.exports) module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

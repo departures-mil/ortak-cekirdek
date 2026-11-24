@@ -3,7 +3,8 @@
      FC.updater.run()        // "Güncelle": indir → SHA-256 doğrula → kabuğa ver (yama hata verirse kendiliğinden tam dosya)
      FC.updater.subscribe(state => ...)
    Kanal: cfg.channel || FC.host.update.channel (electron: win-app, android: android). "Atla" yoktur; yeni sürüm hep önerilir.
-   Kabuk dosyayı değiştirir: FC.host.update.applyPatch(bytes, meta) / installFull(bytes, meta); meta.targetSha256 = tam dosyanın SHA'sı. */
+   Kabuk dosyayı değiştirir: FC.host.update.applyPatch(bytes, meta) / installFull(bytes, meta); meta.targetSha256 = tam dosyanın SHA'sı.
+   Ya da kabuk hepsini kendisi yapar: FC.host.update.run(plan, ilerleme) (Android Java; bkz. run()). */
 (function (g) {
   'use strict';
   var FC = g.FC = g.FC || {};
@@ -77,7 +78,17 @@
   async function loadManifest() {
     var o = opts(), url = manifestUrl(o);
     if (!cfg.fetch && host().net && host().net.download) {
-      var b = await host().net.download(url, function () {});
+      /* Kabuk indirmesinde de 404 (henüz yayın yok) "güncel" sayılır. Electron IPC hata kodunu iletide taşır
+         ("Error invoking remote method 'fc:net:download': Error: HTTP_404"); kod iletiden çıkarılır. */
+      var b;
+      try { b = await host().net.download(url, function () {}); }
+      catch (e) {
+        var txt = String((e && (e.code || '')) || '') + ' ' + String((e && e.message) || e || '');
+        if (/HTTP_404\b/.test(txt)) return null;
+        var m = /(HTTP_\d+|URL_NOT_ALLOWED)/.exec(txt);
+        if (m && !(e && e.code)) throw Object.assign(new Error(m[1]), { code: m[1] });
+        throw e;
+      }
       return JSON.parse(new TextDecoder().decode(b));
     }
     var r = await fetchFn()(url, { cache: 'no-store' });
@@ -127,6 +138,29 @@
     running = true; set({ error: null, fallback: false, patchError: null });
     var meta = { version: p.version, channel: p.channel, targetSha256: p.targetSha256, targetSize: p.targetSize, file: p.full.file };
     if (FC.storage) FC.storage.set('whatsnew.pending', { version: p.version, notes: p.notes });
+    /* Yerel kabuk indirme + yama + kurulumu kendisi yapabiliyorsa (Android Java: WebView'de CORS yok, büyük APK JS'ye taşınmaz;
+       ortak ApkPatchInstaller: kurulu APK + yama → yeni APK, hata olursa tam APK): FC.host.update.run(plan, ilerleme).
+       ilerleme olayları: {patch:bool, done, total, finished} | {patchFailed:true, error} | {installing:true}.
+       Döner: 'restarting' | 'done' | 'patch' | 'full' (ya da Promise). Hata → durum 'error'. */
+    if (h.update && typeof h.update.run === 'function') {
+      try {
+        var tr = null, curMode = null;
+        set({ status: 'downloading', mode: p.mode, progress: { done: 0, total: p.size, pct: 0, remaining: p.size, speed: 0 } });
+        var rn = await h.update.run(p, function (ev) {
+          if (!ev) return;
+          if (ev.patchFailed) { set({ fallback: true, patchError: ev.error || 'PATCH' }); return; }
+          if (ev.installing) { set({ status: 'installing' }); return; }
+          var m = ev.patch ? 'patch' : 'full';
+          if (!tr || m !== curMode) { tr = FC.progress.tracker(ev.total || (m === 'patch' ? p.size : p.full.size)); curMode = m; }
+          set({ status: 'downloading', mode: m, progress: tr.update(ev.done || 0, ev.finished) });
+        });
+        set({ status: rn === 'restarting' ? 'restarting' : 'done' });
+        return rn || 'native';
+      } catch (e) {
+        set({ status: 'error', error: e.code || e.message || 'ERR' });
+        throw e;
+      } finally { running = false; }
+    }
     try {
       if (p.mode === 'patch') {
         try {

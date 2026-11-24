@@ -8,7 +8,14 @@
    - Takas: app.asar.next yazılır, SHA-256 doğrulanır; Windows'ta program kapandıktan sonra küçük bir betik eskisini app.asar.bak yapar,
      yenisini yerine koyar ve programı yeniden açar (başarısızsa eskisini geri koyar). Diğer sistemlerde doğrudan yeniden adlandırılır.
    - Yama biçimi FCD1 (ortak-cekirdek/delta/FORMAT.md; electron/fcd1.js), eski DDSD1 de okunur.
-     Gerekirse install(win, {applyDelta(oldBuf, patchBuf) → Buffer}) ile başka uygulayıcı verilebilir. */
+     Gerekirse install(win, {applyDelta(oldBuf, patchBuf) → Buffer}) ile başka uygulayıcı verilebilir.
+   install(win, seçenekler) — hepsi isteğe bağlı, verilmezse davranış eskisi gibi:
+     show: false            tepside çalışan uygulama: pencere açılışta gösterilmez/tam ekran yapılmaz (uygulama kendisi gösterir)
+     beforeUpdate(meta, kind)  takastan / kurulum açılmadan ÖNCE beklenir (kind 'patch'|'full'|'setup'); ör. tam yedek almak için.
+                            Hata fırlatırsa güncelleme yapılmaz (arayüze hata kodu gider).
+     setupArgs              win-setup exe'sinin argümanları: dizi (ör. ['/S', '--force-run']) ya da true = NSIS sessiz ['/S'].
+                            Verilmezse kurulum argümansız (görünür) açılır.
+   Dışa açık: runSetup(buf, meta, {args}) — kurulum exe'sini doğrular, geçici klasörden ayrık açar, programı kapatır. */
 'use strict';
 const { app, BrowserWindow, ipcMain, screen, shell, net } = require('electron');
 const ofs = (() => { try { return require('original-fs'); } catch (e) { return require('fs'); } })();   // .asar'ı arşiv sanmasın
@@ -78,14 +85,35 @@ function cleanup(o, delayMs) {
   }, delayMs == null ? 60000 : delayMs);
 }
 
-/* ---------- pencere ---------- */
+/* ---------- eski Electron (< 25, net.fetch yok) için indirme: https + yönlendirme (yalnız izinli alan adları) ---------- */
+function httpsGet(url, onData, hops) {
+  return new Promise((resolve, reject) => {
+    const uu = new URL(url);
+    if (uu.protocol !== 'https:' || !ALLOWED_HOSTS.test(uu.hostname)) return reject(err('URL_NOT_ALLOWED'));
+    const req = require('https').get(uu, { headers: { 'User-Agent': 'ortak-cekirdek', 'Cache-Control': 'no-cache' }, timeout: 30000 }, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        res.resume();
+        if ((hops || 0) >= 6) return reject(err('TOO_MANY_REDIRECTS'));
+        return httpsGet(new URL(res.headers.location, uu).toString(), onData, (hops || 0) + 1).then(resolve, reject);
+      }
+      if (res.statusCode !== 200) { res.resume(); return reject(err('HTTP_' + res.statusCode)); }
+      res.on('data', onData); res.on('end', resolve); res.on('error', reject);
+    });
+    req.on('error', reject);
+    req.on('timeout', function () { req.destroy(err('TIMEOUT')); });
+  });
+}
+
 /* ---------- kurulum kanalı (win-setup) ----------
    updater.plan minVersion/setupChannel ile 'win-setup' kanalını seçtiğinde
    installFull kurulum exe'sini getirir; çekirdek bunu app.asar.next olarak yazıp takas ediyordu (program bozulurdu).
    Burada exe SHA-256 ile doğrulanır, geçici klasöre yazılır, ayrık süreç olarak açılır ve program kapanır. */
 function isSetup(meta) { return !!(meta && (/setup/i.test(String(meta.channel || '')) || /\.exe$/i.test(String(meta.file || '')))); }
-function runSetup(buf, meta) {
-  if (process.platform !== 'win32') throw err('SETUP_WINDOWS_ONLY');
+const NSIS_SILENT = ['/S'];
+function setupArgsFor(v) { if (v === true || v === 'nsis' || v === 'silent') return NSIS_SILENT.slice(); if (v === 'inno') return ['/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-']; return Array.isArray(v) ? v.map(String) : []; }
+function runSetup(buf, meta, ro) {
+  ro = ro || {};
+  if ((ro.platform || process.platform) !== 'win32') throw err('SETUP_WINDOWS_ONLY');
   if (!meta || !meta.targetSha256 || sha(buf) !== String(meta.targetSha256).toLowerCase()) throw err('BAD_HASH');
   if (meta.targetSize && buf.length !== +meta.targetSize) throw err('BAD_SIZE');
   const name = String(meta.file || 'setup.exe').replace(/[^\w.-]/g, '_');
@@ -93,7 +121,7 @@ function runSetup(buf, meta) {
   const exe = path.join(dir, /\.exe$/i.test(name) ? name : name + '.exe');
   ofs.writeFileSync(exe, buf);
   if (sha(ofs.readFileSync(exe)) !== sha(buf)) throw err('STAGE_VERIFY');
-  spawn(exe, [], { detached: true, stdio: 'ignore', windowsHide: false }).unref();
+  (ro.spawn || spawn)(exe, setupArgsFor(ro.args), { detached: true, stdio: 'ignore', windowsHide: false, cwd: dir }).unref();
   setTimeout(() => app.exit(0), 400);
   return 'restarting';
 }
@@ -116,7 +144,7 @@ function install(win, opts) {
     win.once('leave-full-screen', () => setTimeout(() => { if (win.isMaximized()) win.unmaximize(); then(); }, 60));
     win.setFullScreen(false);
   }
-  win.once('ready-to-show', () => { win.setFullScreen(true); win.show(); });
+  win.once('ready-to-show', () => { if (o.show === false) return; win.setFullScreen(true); win.show(); });   // show:false → tepside başlar
   win.on('enter-full-screen', () => { half = false; emit(); });
   win.on('leave-full-screen', emit);
 
@@ -129,28 +157,33 @@ function install(win, opts) {
   handle('fc:open', (_e, url) => { if (/^https:\/\//i.test(String(url))) return shell.openExternal(String(url)); });
 
   const result = (f) => async (...a) => { try { return { ok: true, data: await f(...a) } } catch (e) { return { ok: false, error: e.code || e.message || 'ERR' }; } };
-  handle('fc:update:patch', result((_e, bytes, meta) => {
+  const before = async (meta, kind) => { if (typeof o.beforeUpdate === 'function') await o.beforeUpdate(meta || {}, kind); };
+  const relaunch = o._swap || swapAndRelaunch;
+  handle('fc:update:patch', result(async (_e, bytes, meta) => {
     const cur = ofs.readFileSync(asarPath(o));
     const out = applyDelta(cur, Buffer.from(bytes));
-    const st = stage(o, out, meta);
-    swapAndRelaunch(o, st); return 'restarting';
+    const st = stage(o, out, meta);   // yama önce doğrulanır (hata → arayüz tam dosyaya geçer); yedek ancak sonra alınır
+    try { await before(meta, 'patch'); } catch (e) { try { ofs.unlinkSync(st.next); } catch (x) {} throw e; }
+    relaunch(o, st); return 'restarting';
   }));
-  handle('fc:update:full', result((_e, bytes, meta) => {
+  handle('fc:update:full', result(async (_e, bytes, meta) => {
     // Kurulum kanalı (win-setup: NSIS exe) app.asar'ın yerine YAZILMAZ; doğrulanıp çalıştırılır.
-    if (isSetup(meta)) return runSetup(Buffer.from(bytes), meta);
-    const st = stage(o, Buffer.from(bytes), meta); swapAndRelaunch(o, st); return 'restarting';
+    if (isSetup(meta)) { await before(meta, 'setup'); return runSetup(Buffer.from(bytes), meta, { args: o.setupArgs, platform: o._platform, spawn: o._spawn }); }
+    const st = stage(o, Buffer.from(bytes), meta);
+    try { await before(meta, 'full'); } catch (e) { try { ofs.unlinkSync(st.next); } catch (x) {} throw e; }
+    relaunch(o, st); return 'restarting';
   }));
   handle('fc:net:download', async (e, id, url) => {
     const u = new URL(String(url));
     if (u.protocol !== 'https:' || !ALLOWED_HOSTS.test(u.hostname)) throw err('URL_NOT_ALLOWED');
-    const res = await net.fetch(u.toString(), { cache: 'no-store', redirect: 'follow' });
-    if (!res.ok) throw err('HTTP_' + res.status);
-    const rd = res.body.getReader(), parts = []; let n = 0, last = 0;
-    for (;;) {
-      const x = await rd.read(); if (x.done) break;
-      parts.push(Buffer.from(x.value)); n += x.value.length;
-      const t = Date.now(); if (t - last > 150) { last = t; e.sender.send('fc:net:progress', id, n); }
-    }
+    const parts = []; let n = 0, last = 0;
+    const tick = (len) => { n += len; const t = Date.now(); if (t - last > 150) { last = t; e.sender.send('fc:net:progress', id, n); } };
+    if (net && typeof net.fetch === 'function') {
+      const res = await net.fetch(u.toString(), { cache: 'no-store', redirect: 'follow' });
+      if (!res.ok) throw err('HTTP_' + res.status);
+      const rd = res.body.getReader();
+      for (;;) { const x = await rd.read(); if (x.done) break; parts.push(Buffer.from(x.value)); tick(x.value.length); }
+    } else await httpsGet(u.toString(), (c) => { parts.push(c); tick(c.length); });   // Electron < 25: net.fetch yok
     e.sender.send('fc:net:progress', id, n, true);
     return new Uint8Array(Buffer.concat(parts, n));
   });
@@ -178,4 +211,4 @@ function install(win, opts) {
   return { state, setHalf, forward };
 }
 
-module.exports = { windowOptions, install, applyFcd1, cleanup, stage, swapAndRelaunch };
+module.exports = { windowOptions, install, applyFcd1, cleanup, stage, swapAndRelaunch, runSetup, setupArgsFor, isSetup, httpsGet };

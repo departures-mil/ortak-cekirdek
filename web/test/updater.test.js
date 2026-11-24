@@ -122,3 +122,64 @@ test('Android: kurulum ekranı açılınca durum "done" olur (yeniden başlatma 
   const { st } = await runWith({ 'latest.json': JSON.stringify(manifest()), 'Demo-1.57.0-app.asar': FULL }, { android: true });
   assert.strictEqual(st.status, 'done');
 });
+
+/* Kabuk indirmesi (Electron fcHost.net.download): IPC hatası kodu iletide taşır */
+function shellHost(download) {
+  FC.host = { kind: 'electron', can: { update: true }, version: () => '1.56.0', net: { download }, update: { channel: 'win-app' } };
+}
+test('check (kabuk indirmesi): IPC iletisinde HTTP_404 → güncel; başka hata kodu çıkarılır', async () => {
+  U._reset();
+  shellHost(async () => { throw new Error("Error invoking remote method 'fc:net:download': Error: HTTP_404"); });
+  U.start({ repo: 'demo', version: '1.0.0', autoCheck: false });
+  assert.strictEqual(await U.check(), null);
+  assert.strictEqual(U.state().status, 'none');
+  U._reset();
+  shellHost(async () => { throw new Error("Error invoking remote method 'fc:net:download': Error: HTTP_503"); });
+  U.start({ repo: 'demo', version: '1.0.0', autoCheck: false });
+  assert.strictEqual(await U.check(), null);
+  assert.strictEqual(U.state().status, 'error'); assert.strictEqual(U.state().error, 'HTTP_503');
+  U._reset();
+  shellHost(async () => Buffer.from(JSON.stringify(manifest())));
+  U.start({ repo: 'demo', app: 'demo', version: '1.56.0', autoCheck: false });
+  assert.strictEqual((await U.check()).mode, 'patch');
+  delete FC.host;
+});
+
+/* Yerel kabuk kendisi indirip kurar: FC.host.update.run(plan, ilerleme) */
+test('run: FC.host.update.run varsa indirme/yama/kurulum kabukta; ilerleme ve yedek olayları', async () => {
+  U._reset();
+  const seen = [];
+  FC.host = {
+    kind: 'android', can: { update: true }, version: () => '1.56.0',
+    update: {
+      channel: 'win-app',
+      applyPatch: async () => { throw new Error('çağrılmamalı'); }, installFull: async () => { throw new Error('çağrılmamalı'); },
+      run: async (plan, progress) => {
+        seen.push(plan.mode, plan.url, plan.full.url);
+        progress({ patch: true, done: 2, total: 4 });
+        progress({ patchFailed: true, error: 'PATCH_SOURCE_MISMATCH' });
+        progress({ patch: false, done: FULL.length, total: FULL.length, finished: true });
+        progress({ installing: true });
+        return 'done';
+      }
+    }
+  };
+  const states = [];
+  U.start({ repo: 'demo', app: 'demo', version: '1.56.0', autoCheck: false, fetch: mockFetch({ 'latest.json': JSON.stringify(manifest()) }) });
+  U.subscribe((s) => states.push([s.status, s.mode, s.fallback]));
+  await U.check();
+  assert.strictEqual(await U.run(), 'done');
+  assert.strictEqual(seen[0], 'patch'); assert.ok(seen[2].endsWith('Demo-1.57.0-app.asar'));
+  const st = U.state();
+  assert.strictEqual(st.status, 'done'); assert.strictEqual(st.fallback, true); assert.strictEqual(st.patchError, 'PATCH_SOURCE_MISMATCH');
+  assert.ok(states.some((s) => s[0] === 'downloading' && s[1] === 'full'));
+  assert.ok(states.some((s) => s[0] === 'installing'));
+  // hata → durum error
+  U._reset();
+  FC.host.update.run = async () => { throw Object.assign(new Error('x'), { code: 'NATIVE_FAIL' }); };
+  U.start({ repo: 'demo', app: 'demo', version: '1.56.0', autoCheck: false, fetch: mockFetch({ 'latest.json': JSON.stringify(manifest()) }) });
+  await U.check();
+  await assert.rejects(U.run(), /x/);
+  assert.strictEqual(U.state().error, 'NATIVE_FAIL');
+  delete FC.host;
+});

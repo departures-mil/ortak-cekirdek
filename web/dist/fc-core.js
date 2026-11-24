@@ -217,6 +217,7 @@
     menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
     home: '<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>',
     box: '<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/>',
+    book: '<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>',
     settings: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
     zap: '<path d="M13 2 3 14h9l-1 8 10-12h-9z"/>',
     info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
@@ -315,6 +316,12 @@
 /* ---- host.js ---- */
 /* FC.host — kabuk köprüsü. Arayüz kodu yalnızca FC.host'u çağırır; altındaki kabuk değişebilir.
      electron : fc-preload.js'in açtığı window.fcHost
+     shell    : kendi masaüstü kabuğu (Go + WebView2 / Edge --app vb.) — window.fcHost'u kendisi kurar ve kind:'shell' verir
+                (ayrıca shell:'go' gibi bir ad). Sözleşme electron ile AYNI: window{minimize,half,toggleFullscreen,close,getState,onState},
+                update{channel, applyPatch(bytes,meta), installFull(bytes,meta), run?(plan,ilerleme)}, net{download(url,ilerleme)}
+                (hata kodu e.code ya da iletide 'HTTP_404' → güncel), version, platform, openExternal?, onMainError?.
+                Farkı: <html> fc-host-shell alır (Electron'a özgü -webkit-app-region sürükleme kuralları uygulanmaz),
+                tanılama/iletişim kayıtlarında 'shell/<platform>' görünür. Eski kabuklar kind:'electron' demeye devam edebilir.
      android  : window.AndroidBridge (yalnızca var olan yöntemler kullanılır; Küçült / Orta gizlenir, Kapat → moveTaskToBack)
      browser  : düz tarayıcı — Tam ekran Fullscreen API ile, diğer pencere düğmeleri gizli, güncelleme = indirme sayfası.
    <html> öğesine fc-host-<tür> sınıfı eklenir.
@@ -329,9 +336,10 @@
 
   function electron(h) {
     var w = h.window || {};
-    return {
-      kind: 'electron', platform: h.platform || 'win32',
-      can: { minimize: !!w.minimize, half: !!w.half, fullscreen: !!w.toggleFullscreen, close: !!w.close, update: !!(h.update && h.update.applyPatch) },
+    var hu = h.update || {};
+    var r = {
+      kind: h.kind === 'shell' ? 'shell' : 'electron', shell: h.kind === 'shell' ? String(h.shell || 'custom') : '', platform: h.platform || 'win32',
+      can: { minimize: !!w.minimize, half: !!w.half, fullscreen: !!w.toggleFullscreen, close: !!w.close, update: !!(hu.applyPatch || hu.run) },
       window: {
         minimize: function () { return w.minimize ? w.minimize() : noop(); },
         half: function () { return w.half ? w.half() : noop(); },
@@ -341,15 +349,17 @@
         onState: function (cb) { return w.onState ? w.onState(cb) : function () {}; }
       },
       update: {
-        channel: (h.update && h.update.channel) || 'win-app',
-        applyPatch: function (bytes, meta) { return h.update.applyPatch(bytes, meta); },
-        installFull: function (bytes, meta) { return h.update.installFull(bytes, meta); }
+        channel: hu.channel || 'win-app',
+        applyPatch: function (bytes, meta) { return hu.applyPatch ? hu.applyPatch(bytes, meta) : unsupported(); },
+        installFull: function (bytes, meta) { return hu.installFull ? hu.installFull(bytes, meta) : unsupported(); }
       },
       net: h.net && h.net.download ? { download: function (u, p) { return h.net.download(u, p); } } : null,
       onMainError: function (cb) { return h.onMainError ? h.onMainError(cb) : function () {}; },
       openExternal: h.openExternal ? function (u) { return h.openExternal(u); } : null,
-      version: function () { return h.version || ''; }
+      version: function () { return typeof h.version === 'function' ? String(h.version() || '') : (h.version || ''); }
     };
+    if (typeof hu.run === 'function') r.update.run = function (plan, onProgress) { return hu.run(plan, onProgress); };   // kabuk her şeyi kendisi yapar
+    return r;
   }
 
   function b64(bytes) {
@@ -431,7 +441,7 @@
   host.redetect = function () { var n = detect(); for (var k in n) host[k] = n[k]; mark(); return host; };
   function mark() {
     var de = g.document && g.document.documentElement; if (!de) return;
-    de.classList.remove('fc-host-electron', 'fc-host-android', 'fc-host-browser');
+    de.classList.remove('fc-host-electron', 'fc-host-shell', 'fc-host-android', 'fc-host-browser');
     de.classList.add('fc-host-' + host.kind);
     if (host.kind === 'android') de.classList.add('is-android');
   }
@@ -691,7 +701,8 @@
      FC.updater.run()        // "Güncelle": indir → SHA-256 doğrula → kabuğa ver (yama hata verirse kendiliğinden tam dosya)
      FC.updater.subscribe(state => ...)
    Kanal: cfg.channel || FC.host.update.channel (electron: win-app, android: android). "Atla" yoktur; yeni sürüm hep önerilir.
-   Kabuk dosyayı değiştirir: FC.host.update.applyPatch(bytes, meta) / installFull(bytes, meta); meta.targetSha256 = tam dosyanın SHA'sı. */
+   Kabuk dosyayı değiştirir: FC.host.update.applyPatch(bytes, meta) / installFull(bytes, meta); meta.targetSha256 = tam dosyanın SHA'sı.
+   Ya da kabuk hepsini kendisi yapar: FC.host.update.run(plan, ilerleme) (Android Java; bkz. run()). */
 (function (g) {
   'use strict';
   var FC = g.FC = g.FC || {};
@@ -765,7 +776,17 @@
   async function loadManifest() {
     var o = opts(), url = manifestUrl(o);
     if (!cfg.fetch && host().net && host().net.download) {
-      var b = await host().net.download(url, function () {});
+      /* Kabuk indirmesinde de 404 (henüz yayın yok) "güncel" sayılır. Electron IPC hata kodunu iletide taşır
+         ("Error invoking remote method 'fc:net:download': Error: HTTP_404"); kod iletiden çıkarılır. */
+      var b;
+      try { b = await host().net.download(url, function () {}); }
+      catch (e) {
+        var txt = String((e && (e.code || '')) || '') + ' ' + String((e && e.message) || e || '');
+        if (/HTTP_404\b/.test(txt)) return null;
+        var m = /(HTTP_\d+|URL_NOT_ALLOWED)/.exec(txt);
+        if (m && !(e && e.code)) throw Object.assign(new Error(m[1]), { code: m[1] });
+        throw e;
+      }
       return JSON.parse(new TextDecoder().decode(b));
     }
     var r = await fetchFn()(url, { cache: 'no-store' });
@@ -815,6 +836,29 @@
     running = true; set({ error: null, fallback: false, patchError: null });
     var meta = { version: p.version, channel: p.channel, targetSha256: p.targetSha256, targetSize: p.targetSize, file: p.full.file };
     if (FC.storage) FC.storage.set('whatsnew.pending', { version: p.version, notes: p.notes });
+    /* Yerel kabuk indirme + yama + kurulumu kendisi yapabiliyorsa (Android Java: WebView'de CORS yok, büyük APK JS'ye taşınmaz;
+       ortak ApkPatchInstaller: kurulu APK + yama → yeni APK, hata olursa tam APK): FC.host.update.run(plan, ilerleme).
+       ilerleme olayları: {patch:bool, done, total, finished} | {patchFailed:true, error} | {installing:true}.
+       Döner: 'restarting' | 'done' | 'patch' | 'full' (ya da Promise). Hata → durum 'error'. */
+    if (h.update && typeof h.update.run === 'function') {
+      try {
+        var tr = null, curMode = null;
+        set({ status: 'downloading', mode: p.mode, progress: { done: 0, total: p.size, pct: 0, remaining: p.size, speed: 0 } });
+        var rn = await h.update.run(p, function (ev) {
+          if (!ev) return;
+          if (ev.patchFailed) { set({ fallback: true, patchError: ev.error || 'PATCH' }); return; }
+          if (ev.installing) { set({ status: 'installing' }); return; }
+          var m = ev.patch ? 'patch' : 'full';
+          if (!tr || m !== curMode) { tr = FC.progress.tracker(ev.total || (m === 'patch' ? p.size : p.full.size)); curMode = m; }
+          set({ status: 'downloading', mode: m, progress: tr.update(ev.done || 0, ev.finished) });
+        });
+        set({ status: rn === 'restarting' ? 'restarting' : 'done' });
+        return rn || 'native';
+      } catch (e) {
+        set({ status: 'error', error: e.code || e.message || 'ERR' });
+        throw e;
+      } finally { running = false; }
+    }
     try {
       if (p.mode === 'patch') {
         try {
@@ -1401,7 +1445,8 @@
      FC.whatsnew.start({version:'1.57.0'})   // açılışta bir kez
      FC.whatsnew.show()                       // Ayarlar'dan elle
    Notlar FC.updater kurulumdan ÖNCE fc.whatsnew.pending'e yazar ({version, notes:{tr,en,ar}}); burada o sürümle
-   eşleşirse geçerli dilde gösterilir. İlk kurulumda pencere açılmaz. opts.notes ile (ör. gömülü CHANGELOG) verilebilir. */
+   eşleşirse geçerli dilde gösterilir. İlk kurulumda pencere açılmaz. opts.notes ile (ör. gömülü CHANGELOG) verilebilir:
+     {tr,en,ar} ya da function(version) → {tr,en,ar}|null. FC.init({whatsnew:{notes, delayMs}}) bunları buraya iletir. */
 (function (g) {
   'use strict';
   var FC = g.FC = g.FC || {};
@@ -1431,9 +1476,18 @@
     if (!v) return false;
     var seen = S().get('whatsnew.seen', null);
     S().set('whatsnew.seen', v);
-    if (!seen || seen === v) return false;   // ilk kurulum ya da aynı sürüm
-    if (FC.updater && FC.updater.cmp) { try { if (FC.updater.cmp(v, seen) <= 0) return false; } catch (e) {} }
+    if (!shouldShow(v, seen)) return false;
     setTimeout(function () { show(v); }, cfg.delayMs == null ? 900 : cfg.delayMs);
+    return true;
+  }
+  /** Saf karar: ilk kurulum (seen yok) ya da aynı/eski sürüm → false. Eski uygulamaların semver olmayan "görüldü" değerleri
+      ("3.3", 3.3, "2.1.0.4") karşılaştırılamaz → yeni sürüm sayılır, pencere gösterilir. */
+  function shouldShow(v, seen) {
+    if (seen === null || seen === undefined || seen === '') return false;
+    v = String(v); seen = String(seen);
+    if (seen === v) return false;
+    var U = FC.updater;
+    if (U && U.cmp && U.parse && U.parse(v) && U.parse(seen)) return U.cmp(v, seen) > 0;
     return true;
   }
   function button() {
@@ -1442,7 +1496,7 @@
     b.addEventListener('click', function () { show(); }); draw(); FC.i18n.onChange(draw);
     return b;
   }
-  var api = { start: start, show: show, button: button };
+  var api = { start: start, show: show, button: button, shouldShow: shouldShow };
   FC.whatsnew = api;
   if (typeof module === 'object' && module.exports) module.exports = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
@@ -2302,11 +2356,11 @@
 /* FC.init — tek çağrıda çekirdeği başlatır (her modül ayrıca tek başına da kullanılabilir).
      FC.init({app:'kitaplik', repo:'kitaplik', version:'2.5.0', announcements:true});
    Yapılan: dil + görünüm uygulanır, iletişim kuyruğu ve çökme raporu kurulur, güncelleme denetimi (açılış + 6 saat),
-   "neler yeni" (güncellemeden sonraki ilk açılış), isteğe bağlı duyurular ve ilk açılış sihirbazı. */
+   "neler yeni" (güncellemeden sonraki ilk açılış; whatsnew:{notes, delayMs} ya da false), isteğe bağlı duyurular ve ilk açılış sihirbazı. */
 (function (g) {
   'use strict';
   var FC = g.FC = g.FC || {};
-  FC.version = '1.1.0';
+  FC.version = '1.2.0';
   FC.init = function (o) {
     o = o || {};
     var v = o.version || (FC.host && FC.host.version()) || '0.0.0';
@@ -2314,7 +2368,7 @@
     if (FC.contact) FC.contact.init({ app: o.app, version: v });
     if (FC.crash && o.crash !== false) FC.crash.init({ app: o.app, version: v });
     if (FC.updater && o.update !== false && (o.repo || o.manifestUrl)) FC.updater.start({ repo: o.repo, owner: o.owner, app: o.app, version: v, channel: o.channel, setupChannel: o.setupChannel, manifestUrl: o.manifestUrl });
-    var wn = FC.whatsnew && o.whatsnew !== false ? FC.whatsnew.start({ version: v }) : false;
+    var wn = FC.whatsnew && o.whatsnew !== false ? FC.whatsnew.start(Object.assign({}, typeof o.whatsnew === 'object' && o.whatsnew ? o.whatsnew : {}, { version: v })) : false;
     if (FC.announcements && o.announcements) FC.announcements.start({ app: o.app, version: v, onUpdate: function () { FC.updater.run().catch(function () {}); } });
     if (FC.agent && o.agent !== false) FC.agent.start(Object.assign({ app: o.app, version: v }, o.agent || {}));
     if (FC.onboarding && o.onboarding && !wn) setTimeout(function () { FC.onboarding.maybeStart(o.onboarding); }, 600);
