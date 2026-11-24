@@ -34,6 +34,11 @@ contextBridge.exposeInMainWorld('fcHost', {
       return call('fc:net:download', id, url).finally(() => ipcRenderer.removeListener('fc:net:progress', f));
     }
   },
+  agent: {
+    read: () => unwrap(call('fc:agent:read')),
+    write: (key, json) => unwrap(call('fc:agent:write', key, json)),
+    remove: (key) => unwrap(call('fc:agent:remove', key))
+  },
   onMainError: (cb) => { const f = (_e, m) => cb(m); ipcRenderer.on('fc:main-error', f); return () => ipcRenderer.removeListener('fc:main-error', f); },
   openExternal: (url) => call('fc:open', url)
 });

@@ -5,7 +5,7 @@
 (function (g) {
   'use strict';
   var FC = g.FC = g.FC || {};
-  FC.version = '1.0.0';
+  FC.version = '1.1.0';
   FC.init = function (o) {
     o = o || {};
     var v = o.version || (FC.host && FC.host.version()) || '0.0.0';
@@ -15,6 +15,7 @@
     if (FC.updater && o.update !== false && (o.repo || o.manifestUrl)) FC.updater.start({ repo: o.repo, owner: o.owner, app: o.app, version: v, channel: o.channel, setupChannel: o.setupChannel, manifestUrl: o.manifestUrl });
     var wn = FC.whatsnew && o.whatsnew !== false ? FC.whatsnew.start({ version: v }) : false;
     if (FC.announcements && o.announcements) FC.announcements.start({ app: o.app, version: v, onUpdate: function () { FC.updater.run().catch(function () {}); } });
+    if (FC.agent && o.agent !== false) FC.agent.start(Object.assign({ app: o.app, version: v }, o.agent || {}));
     if (FC.onboarding && o.onboarding && !wn) setTimeout(function () { FC.onboarding.maybeStart(o.onboarding); }, 600);
     return FC;
   };

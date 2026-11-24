@@ -75,6 +75,13 @@ FC.look.registerScheme('klasik', { dark: { '--bg': '#1d2433', '--panel-solid': '
 ```
 Kaydedilmeyen `klasik` seçicide görünmez. Token listesi `tools/schemes.js` → `TOKENS`; değişiklikten sonra `npm run build`.
 
+## Asistan Agent
+
+`FC.init` başlatır; üst çubuğa ✦ (okunmamış sayısıyla) ve Ayarlar'a "Asistan Agent" kartı kendiliğinden gelir (`agent:false` ile kapatılır).
+Ek kod gerekmez; isterseniz: `FC.agent.track('fatura.kaydet')`, `FC.agent.task(id,'start'|'done', etiket)`,
+LAN eşitlemesinde `paket.agent = FC.agent.exportShare()` → karşıda `FC.agent.importShare(paket.agent)`.
+Android: `AndroidBridge.notify(title, body)` eklenirse öneriler sistem bildirimi olur. Ayrıntı: `../SPEC.md` → Asistan Agent.
+
 ## Entegre edenin bilmesi gerekenler
 
 - **Kayıtlar/kimlik:** iletişim ve çökme raporları SPEC'teki gelen kutusuna gider (`tur`, `uygulama`, `surum`, `platform`, `dil`, `mesaj`,

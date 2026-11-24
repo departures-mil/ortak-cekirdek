@@ -131,6 +131,12 @@ function install(win, opts) {
     e.sender.send('fc:net:progress', id, n, true);
     return new Uint8Array(Buffer.concat(parts, n));
   });
+  /* Asistan Agent: aynı bilgisayardaki uygulamalar sayaçlarını ortak klasörde paylaşır (yalnız sayılar, içerik yok) */
+  const agentDir = () => path.join(app.getPath('appData'), 'FalconCekirdek', 'agent');
+  const agentFile = (k) => path.join(agentDir(), String(k).replace(/[^\w@.-]/g, '_').slice(0, 120) + '.json');
+  handle('fc:agent:write', result((_e, key, json) => { const s = String(json); if (s.length > 2e6) throw err('TOO_BIG'); JSON.parse(s); ofs.mkdirSync(agentDir(), { recursive: true }); const f = agentFile(key); ofs.writeFileSync(f + '.tmp', s); ofs.renameSync(f + '.tmp', f); return true; }));
+  handle('fc:agent:read', result(() => { const out = {}; let names = []; try { names = ofs.readdirSync(agentDir()); } catch (e) { return out; } names.filter((n) => n.endsWith('.json')).slice(0, 200).forEach((n) => { try { out[n.slice(0, -5)] = ofs.readFileSync(path.join(agentDir(), n), 'utf8'); } catch (e) {} }); return out; }));
+  handle('fc:agent:remove', result((_e, key) => { try { ofs.unlinkSync(agentFile(key)); } catch (e) {} return true; }));
   ipcMain.removeAllListeners('fc:info');
   ipcMain.on('fc:info', (e) => { e.returnValue = { version: app.getVersion(), name: app.getName(), platform: process.platform, channel: o.channel }; });
 

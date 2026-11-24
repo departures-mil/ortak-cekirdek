@@ -17,12 +17,14 @@
     var ui = FC.ui, el = ui.el, icon = ui.icon, h = FC.host;
     var bar = el('div.topbar-actions');
     (o.before || []).forEach(function (n) { bar.appendChild(n); });
+    if (FC.agent && o.agent !== false) bar.appendChild(FC.agent.button());
     var redraws = [];
 
     /* Eşitle */
     var syncState = o.sync && o.sync.state || 'off', syncBadge = 0, syncBtn = null;
     if (o.sync !== false) {
-      syncBtn = el('button.btn.small.top-act.sync-act', { type: 'button' });
+      syncBtn = el('button.btn.small.top-act.sync-act', { type: 'button', 'data-fc-track': 'fc.sync' });
+      if (FC.agent) FC.agent.hasSync();
       syncBtn.addEventListener('click', function () { if (o.sync && o.sync.onClick) o.sync.onClick(syncState); });
       bar.appendChild(syncBtn);
       redraws.push(function () {
@@ -37,7 +39,7 @@
     /* Wi-Fi / LAN */
     var lanState = o.lan && o.lan.state || 'off', lanBtn = null;
     if (o.lan !== false) {
-      lanBtn = el('button.icon-btn.lan-act', { type: 'button' });
+      lanBtn = el('button.icon-btn.lan-act', { type: 'button', 'data-fc-track': 'fc.sync.lan' });
       lanBtn.addEventListener('click', function () { if (o.lan && o.lan.onClick) o.lan.onClick(lanState); });
       bar.appendChild(lanBtn);
       redraws.push(function () {

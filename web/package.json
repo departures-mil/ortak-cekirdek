@@ -1,6 +1,6 @@
 {
   "name": "@departures-mil/fc-core-web",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Ortak çekirdek (web): Falcon tasarımı, üst çubuk, güncelleme, iletişim, çökme raporu, kullanım limitleri, kurulum sihirbazı, LAN birleştirme",
   "main": "dist/fc-core.js",

@@ -1,4 +1,4 @@
-/* FC.settings — Falcon .settings-grid kurucusu. Sıra: [Görünüm] · uygulamanın kartları · [Kullanım Limitleri] ·
+/* FC.settings — Falcon .settings-grid kurucusu. Sıra: [Görünüm] · uygulamanın kartları · [Asistan Agent] · [Kullanım Limitleri] ·
    [Otomatik hata raporu] · [Hakkında] · Admin ile iletişim (HER ZAMAN SON).
      FC.settings.build(document.getElementById('ayarlar'), {
        cards: [benimKartim1, benimKartim2],   // DOM düğümleri
@@ -32,6 +32,7 @@
     if (grid !== container) container.appendChild(grid);
     if (o.look !== false && FC.look) grid.appendChild(FC.look.card());
     (o.cards || []).forEach(function (c) { if (c) grid.appendChild(c); });
+    if (o.agent !== false && FC.agent) grid.appendChild(FC.agent.card());
     if (o.usage !== false && FC.usage) grid.appendChild(FC.usage.card(o.usage || {}));
     if (o.crash !== false && FC.crash) grid.appendChild(FC.crash.card());
     if (o.about !== false) grid.appendChild(about(o.about || {}));

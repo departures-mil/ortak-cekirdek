@@ -57,3 +57,11 @@ Hiçbir kayıt silinmez ya da üstüne yazılmaz: çakışmada yeni olan kalır,
 
 ## Renk şemaları (kullanıcı isteği 2026-11-24)
 Varsayılan şema her uygulamada "falcon". Ayarlar → Görünüm'de seçilebilir: falcon, klasik (uygulamanın eski görünümü — entegrasyon agent'ı uygulamanın eski renklerini çıkarıp `FC.look.registerScheme('klasik',...)` ile kaydeder), zumrut, gunbatimi, mor, okyanus, grafit, yuksek-kontrast. Koyu/açık/otomatik moddan bağımsız.
+
+## Asistan Agent (kullanıcı isteği 2026-11-24)
+Her uygulamada `FC.agent` (web/js/agent.js) açıktır; `FC.init` başlatır, `FC.topbar` ✦ düğmesini, `FC.settings` "Asistan Agent" kartını kendisi ekler.
+- **İzler:** etkin dakika (2 dk girdisiz = boşta), oturum, düğme/sekme adları (e-posta ve sayılar maskelenir, en çok 40 karakter), saat dağılımı, en uzun kesintisiz süre, hata sayısı, açık işler (`FC.agent.task`). Metin/kayıt içeriği ASLA tutulmaz.
+- **Tüm uygulamalar birlikte:** kaynak anahtarı `uygulama@cihaz`. Paylaşım: (1) Electron `%APPDATA%/FalconCekirdek/agent/*.json` (`fcHost.agent.read/write/remove`), (2) kullanıcının KENDİ Firestore'u `fc_agent/{uygulama}_{cihaz}` alanı `veri` (JSON string), 30 dk'da bir, sayaçlı, (3) LAN: `exportShare()` → karşı tarafta `importShare(obj)`. Kaynak başına `u` büyük olan kalır; kendi kaydı dışarıdan ezilmez. 60 gün tutulur.
+- **Yorum:** çevrim dışı kurallar (artış/düşüş, en çok kullanılan uygulama, gece çalışması, mola, verimli saat, tekrar eden işlem, eşitleme yok, hata, kullanılmayan uygulama, bölünmüş oturum, 3 günden eski açık iş, süreklilik, bekleyen güncelleme) + kullanıcının kendi AI anahtarıyla çevrim içi öneri (gemini/openai/anthropic/groq; yalnız sayı özeti gider; günde en çok 4 çağrı; hata/çevrimdışı → yalnız kurallar). Aynı yorum 3 gün tekrar edilmez.
+- **Teslim:** bildirim (Electron/tarayıcı `Notification`, Android `AndroidBridge.notify(baslik, metin)` varsa) + uygulama içi panel. Ayarlar: agent aç/kapa, bildirim, panel, çevrim içi AI, sıklık (anlık/günlük/haftalık/istenince; varsayılan günlük), izlenen uygulamalar, şimdi analiz et, kayıtları sil.
+- Android yerel tarafı: `@JavascriptInterface void notify(String title, String body)` → NotificationCompat (kanal "Asistan Agent").

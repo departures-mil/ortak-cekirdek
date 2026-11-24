@@ -230,3 +230,15 @@ html[dir=rtl] .fc-flip svg,html[dir=rtl] svg.fc-flip{transform:scaleX(-1)}
 .fc-swatch i:nth-child(2){background:var(--panel-solid);border-inline:1px solid var(--border)}
 .fc-swatch i:nth-child(3){flex:.8;background:var(--grad-primary)}
 .fc-swatch b{flex:.6;background:var(--accent)}
+/* Asistan Agent */
+.fc-agent-stats{margin-bottom:6px}
+.fc-agent-bar{display:grid;grid-template-columns:minmax(80px,34%) 1fr auto;align-items:center;gap:10px;margin:6px 0;font-size:.9rem}
+.fc-agent-bar-l{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fc-agent-bar-t{height:8px;border-radius:99px;background:var(--border);overflow:hidden}
+.fc-agent-bar-f{display:block;height:100%;border-radius:99px;background:var(--accent)}
+.fc-agent-bar-v{color:var(--muted);font-variant-numeric:tabular-nums}
+.fc-agent-note.unread .fc-text{font-weight:600}
+.fc-agent-chip{display:inline-flex;align-items:center;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:500;color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent);border:var(--border-w) solid color-mix(in srgb,var(--accent) 35%,transparent)}
+.fc-agent-chip.ai{color:var(--text);background:color-mix(in srgb,var(--accent) 30%,transparent)}
+.fc-agent-note .fc-agent-chip{margin-inline-end:6px}
+.check input{flex-shrink:0}
