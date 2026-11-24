@@ -921,7 +921,8 @@ if (typeof FC === "undefined" || !FC.topbar) {
       pend = 0;
       var target = find(); if (!target || !target.parentNode) return;
       if (host && host.isConnected) { var sib = target, k = 0; while ((sib = sib.previousElementSibling) && k++ < 3) if (sib === host) return; }   // diğer eklentilerle yer kavgası yapma
-      if (!host || !host.isConnected) { var wrap = g.document.createElement('div'); wrap.setAttribute('data-fc-agent', ''); wrap.className = (target.className || '').split(' ').filter(function (c) { return /^(col|grid|span)/.test(c); }).join(' '); target.parentNode.insertBefore(wrap, target); settings(wrap); host = wrap; }
+      if (!host || !host.isConnected) { var wrap = g.document.createElement('div'); wrap.setAttribute('data-fc-agent', ''); wrap.className = (target.className || '').split(' ').filter(function (c) { return /^(col|grid|span)/.test(c); }).join(' '); try { var cs = g.getComputedStyle(target); ['maxWidth', 'marginTop', 'marginBottom', 'marginLeft', 'marginRight', 'width'].forEach(function (k) { if (k !== 'width' || /%$/.test(target.style.width || '')) wrap.style[k] = cs[k]; }); } catch (e) {}
+        target.parentNode.insertBefore(wrap, target); settings(wrap); host = wrap; }
       else target.parentNode.insertBefore(host, target);
     }
     var mo = new g.MutationObserver(function (recs) {
