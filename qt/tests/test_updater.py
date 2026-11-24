@@ -242,3 +242,57 @@ def test_windows_cmd_script_text(tmp_path, monkeypatch):
     body = open(p, 'rb').read().decode('utf-8')
     assert body.startswith('@echo off\r\nchcp 65001') and 'PID eq 1234' in body and ':geri' in body and '--fc-updated=2.0.0' in body
     assert 'rmdir /S /Q "C:\\Users\\Ç\\AppData\\Local\\Programs\\Organizer.bak"' in body
+
+
+# ---------------------------------------------------------------- takas/kurulum betikleri (çekirdeğe alınan düzeltmeler)
+def test_swap_script_hata_relaunches_old_exe(tmp_path):
+    p = U.write_swap_script(str(tmp_path), 123, 'dir', 'C:\\P\\App', 'C:\\P\\App.new', 'C:\\P\\App\\App.exe', 'C:\\m.ok', '1.3.0', windows=True)
+    body = open(p, encoding='utf-8').read()
+    hata = body.split(':hata', 1)[1].split(':son', 1)[0]
+    assert 'start "" "C:\\P\\App\\App.exe" --fc-update-failed=1.3.0' in hata
+    assert 'if exist "C:\\P\\App\\App.exe"' in hata
+    sh = open(U.write_swap_script(str(tmp_path), 123, 'dir', '/p/App', '/p/App.new', '/p/App/app', '/m.ok', '1.3.0', windows=False)).read()
+    assert sh.count('--fc-update-failed=1.3.0') == 2          # takas başlayamadıysa da, geri alınca da
+
+
+def test_swap_helper_spawns_with_staging_cwd(appdirs):
+    calls = []
+    u = mk(appdirs)
+    u.spawn = lambda args, cwd=None: calls.append((args, cwd))
+    assert u.run() == 'patch'
+    assert calls and calls[0][1] == u.staging
+    assert not calls[0][1].startswith(str(appdirs['old']))
+    # eski imzalı spawn(args) da çalışır
+    assert U._accepts_cwd(lambda args: None) is False and U._accepts_cwd(U._spawn_detached) is True
+
+
+def test_setup_args_silent_script_then_relaunch(appdirs, tmp_path):
+    assert U.setup_args_for(None) is None and U.setup_args_for('nsis') == ['/S'] and U.setup_args_for(True) == ['/S']
+    assert U.setup_args_for('inno')[0] == '/VERYSILENT' and U.setup_args_for(['/x']) == ['/x']
+    cmd = open(U.write_setup_script(str(tmp_path), 77, 'C:\\t\\S.exe', ['/VERYSILENT', '/SP-'], 'C:\\P\\App.exe', windows=True, version='2.0.0'),
+               encoding='utf-8').read()
+    assert 'start "" /wait "C:\\t\\S.exe" /VERYSILENT /SP-' in cmd
+    assert 'start "" "C:\\P\\App.exe" --fc-updated=2.0.0' in cmd and 'PID eq 77' in cmd
+    assert cmd.index(':kur') < cmd.index('/wait')
+    exe = b'MZsetup' * 100
+    m = man(minVersion='1.2.5')
+    m['assets']['win-setup'] = {'file': 'O-Setup-1.3.0.exe', 'size': len(exe), 'sha256': H(exe)}
+    u = mk(appdirs, {'latest.json': json.dumps(m).encode(), 'O-Setup-1.3.0.exe': exe}, setup_args='nsis')
+    assert u.run() == 'setup'
+    args = u.spawned[0]
+    script = args[-1]
+    assert os.path.basename(script).startswith('kurulum.')
+    body = open(script, encoding='utf-8').read()
+    assert 'O-Setup-1.3.0.exe' in body and '/S' in body and 'Organizer.exe' in body and '--fc-updated=1.3.0' in body
+
+
+def test_fcpack_cli_survives_non_utf8_console(appdirs, tmp_path):
+    import subprocess
+    import sys as _s
+    env = dict(os.environ, PYTHONIOENCODING='cp1252:strict', PYTHONPATH=os.path.dirname(os.path.dirname(fcpack.__file__)))
+    out = tmp_path / 'ç.zip'
+    r = subprocess.run([_s.executable, '-m', 'fccore.fcpack', str(appdirs['old']), str(out)], env=env, capture_output=True)
+    assert r.returncode == 0, r.stderr
+    assert out.exists() and r.stdout.startswith(b'written ')
+    r = subprocess.run([_s.executable, '-m', 'fccore.fcpack'], env=env, capture_output=True)
+    assert r.returncode == 2 and b'Traceback' not in r.stderr

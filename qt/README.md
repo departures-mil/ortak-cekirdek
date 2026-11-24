@@ -82,6 +82,12 @@ Kanallar (SPEC): `win-app` = uygulama klasörünün **fcpack zip'i**, `win-setup
    bırakmazsa (`fccore.init` bunu kendisi yapar) eski klasör geri konur ve eski sürüm `--fc-update-failed=X` ile açılır (kullanıcıya bildirim).
 4. Kurulum klasörü yazılamıyorsa (`NO_WRITE`) ya da kurulu sürüm `minVersion` altındaysa `win-setup` exe'si indirilir, doğrulanır, ayrık süreç
    olarak çalıştırılır ve program kapanır. Geliştirme modunda (`sys.frozen` yok) Güncelle → Releases sayfası açılır.
+   Sessiz kurulum: `Updater(..., setup_args='inno')` (Inno `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP- /CLOSEAPPLICATIONS`),
+   `'nsis'` (`/S`) ya da kendi listeniz → program kapanınca kurulum beklenerek çalışır, bitince program `--fc-updated=X` ile yeniden açılır
+   (`setup_relaunch=yol` başka exe, `False` açma). Verilmezse eskisi gibi kurulum görünür açılır.
+5. Yardımcı betikler (`takas-*.cmd`, `kurulum.cmd`) güncelleme klasöründen, çalışma klasörü o klasör olarak açılır (kurulum klasöründe
+   açık kalan çalışma klasörü Windows'ta klasör takasını engellerdi). Takas hiç başlayamazsa (`:hata`) eski exe `--fc-update-failed=X` ile
+   yeniden açılır. Kendi `spawn` işlevinizi verirseniz `cwd` anahtar sözcüğünü alması önerilir (almıyorsa eskisi gibi `spawn(args)`).
 
 CI (ortak `reusable-release.yml`): Windows derlemesinden sonra
 ```
@@ -90,6 +96,7 @@ files: |
   win-app=Organizer-win-app.zip
   win-setup=Organizer-Setup-*.exe
 ```
+`fcpack` konsola yalnız ASCII durum satırı yazar ve stdout'u UTF-8'e çevirir (Windows CI'nin cp1252 konsolunda çökmez).
 İstemcinin yeniden ürettiği zip'in CI'dakiyle aynı olması için **aynı Python sürümüyle** (aynı zlib) derleyin; olmazsa yalnızca yama
 kullanılamaz, tam zip iner (doğruluk SHA-256 ile korunur). Yükseltme sonrası saklanan zip (`base-win-app.zip`, veri klasöründe) bir sonraki
 yamanın tabanıdır — bu yüzden ikinci güncellemeden itibaren yama her zaman çalışır.
@@ -97,11 +104,10 @@ yamanın tabanıdır — bu yüzden ikinci güncellemeden itibaren yama her zama
 ## PyInstaller notları
 
 ```python
-# .spec
-from PyInstaller.utils.hooks import collect_data_files
-datas += collect_data_files('fccore')            # fonts/*.ttf + lisanslar (ZORUNLU; yoksa sistem yazı tipine düşer)
-hiddenimports += ['PySide6.QtSvg']               # simgeler QSvgRenderer ile çizilir
-# excludes listesine PySide6.QtSvg EKLEMEYİN.
+# .spec — fccore uygulamaya KOPYALANIR (gömülü, pip paketi değil): collect_data_files('fccore') paket bulamayıp boş döner.
+datas += [('fccore/fonts', 'fccore/fonts')]      # fonts/*.ttf + lisanslar (ZORUNLU; yoksa sistem yazı tipine düşer)
+hiddenimports += ['PySide6.QtSvg', 'fccore._strings', 'fccore._icons', 'fccore._fcdelta', 'fccore._agent_engine']
+# excludes listesine PySide6.QtSvg EKLEMEYİN. fccore başka bir klasördeyse yolu ona göre verin (ör. ('masaustu/fccore/fonts', 'fccore/fonts')).
 ```
 - one-dir (`COLLECT`) derleyin; `win-app` kanalı klasör takası yapar. Tek exe (`win-exe`) de desteklenir (dosya takası).
 - Program kurulum klasörüne veri yazmamalı (fcpack `__pycache__` ve `.fc-*` dışındaki her dosyayı paketler).

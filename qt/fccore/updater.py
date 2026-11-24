@@ -8,6 +8,8 @@ PyInstaller one-dir uygulaması için kanallar:
               Kurulum: zip → <klasör>.new, program kapanınca yardımcı betik klasörleri takas eder, yeni sürümü açar;
               yeni sürüm 90 sn içinde "açıldım" işareti bırakmazsa eski klasör geri konur (rollback).
   win-setup : kurulum exe'si — doğrulanır, ayrık süreç olarak çalıştırılır, program kapanır.
+              Updater(setup_args='inno'|'nsis'|[...]) → program kapanınca sessiz kurulum, bitince program yeniden açılır.
+  Yardımcı betikler güncelleme klasöründe (staging) çalışır; çalışma klasörü kurulum klasörü olmaz.
   win-exe   : tek exe — aynı takas yöntemiyle dosya değiştirilir.
 
     u = Updater(repo='pixhawk-log-analiz', app='pixhawk-log-analiz', version='1.4.0')
@@ -171,7 +173,7 @@ def app_dir():
 class Updater:
     def __init__(self, repo=None, app=None, version='0.0.0', owner=None, channel='win-app', setup_channel='win-setup',
                  manifest_url=None, opener=None, app_dir=None, exe=None, staging=None, can_update=None, keep_base=True,
-                 on_quit=None, open_url=None, spawn=None):
+                 on_quit=None, open_url=None, spawn=None, setup_args=None, setup_relaunch=None):
         self.cfg = {'repo': repo, 'owner': owner, 'app': app or repo, 'version': norm_ver(version), 'channel': channel,
                     'setupChannel': setup_channel, 'manifestUrl': manifest_url}
         self.opener = opener or default_open
@@ -183,6 +185,11 @@ class Updater:
         self.on_quit = on_quit
         self.open_url = open_url
         self.spawn = spawn or _spawn_detached
+        # win-setup: None → kurulum exe'si argümansız (görünür) açılır, program kapanır (eski davranış).
+        # 'inno' | 'nsis' | [argümanlar] → program kapanınca sessiz kurulum (bekleyerek), sonra program yeniden açılır
+        # (setup_relaunch: açılacak exe; None → çalışan exe, False → açma).
+        self.setup_args = setup_args
+        self.setup_relaunch = setup_relaunch
         self.state = {'status': 'idle', 'current': self.cfg['version'], 'plan': None, 'progress': None, 'mode': None,
                       'error': None, 'checkedAt': None, 'fallback': False, 'patchError': None}
         self._subs = []
@@ -415,8 +422,14 @@ class Updater:
             exe = path if path.lower().endswith('.exe') else path + '.exe'
             if exe != path:
                 os.replace(path, exe)
+            args = setup_args_for(self.setup_args)
             try:
-                self.spawn([exe])
+                if args is None:
+                    self._spawn([exe])
+                else:
+                    relaunch = self.exe if self.setup_relaunch is None else (self.setup_relaunch or None)
+                    script = write_setup_script(self.staging, os.getpid(), exe, args, relaunch, version=p.get('version', '') if isinstance(p, dict) else '')
+                    self._spawn(['cmd.exe', '/c', script] if script.endswith('.cmd') else ['/bin/sh', script])
             except Exception:
                 raise UpdateError('SPAWN_FAILED')
             self._set(status='restarting')
@@ -491,11 +504,19 @@ class Updater:
         script = write_swap_script(self.staging, os.getpid(), kind, target, new, exe, mk, version)
         try:
             if sys.platform.startswith('win'):
-                self.spawn(['cmd.exe', '/c', script])
+                self._spawn(['cmd.exe', '/c', script])
             else:
-                self.spawn(['/bin/sh', script])
+                self._spawn(['/bin/sh', script])
         except Exception:
             raise UpdateError('SPAWN_FAILED')
+
+    def _spawn(self, args):
+        """Ayrık süreç; çalışma klasörü güncelleme klasörü (kurulum klasörü değil — yoksa Windows klasörü taşıyamaz).
+        Uygulamanın verdiği spawn(args) cwd almıyorsa eskisi gibi çağrılır."""
+        os.makedirs(self.staging, exist_ok=True)
+        if _accepts_cwd(self.spawn):
+            return self.spawn(args, cwd=self.staging)
+        return self.spawn(args)
 
     def _quit(self):
         if self.on_quit:
@@ -522,12 +543,13 @@ def confirm_started(staging=None, version=None):
     return True
 
 
-def write_swap_script(staging, pid, kind, target, new, exe, marker, version, wait_s=90):
-    """Program kapanınca çalışan takas betiği (Windows .cmd, diğerleri sh). Hata → eski sürüm geri konur."""
+def write_swap_script(staging, pid, kind, target, new, exe, marker, version, wait_s=90, windows=None):
+    """Program kapanınca çalışan takas betiği (Windows .cmd, diğerleri sh). Hata → eski sürüm geri konur ve
+    eski sürüm --fc-update-failed ile yeniden açılır (takas hiç başlayamadıysa da)."""
     os.makedirs(staging, exist_ok=True)
     bak = target + '.bak'
     log = os.path.join(staging, 'takas.log')
-    if sys.platform.startswith('win'):
+    if sys.platform.startswith('win') if windows is None else windows:
         q = lambda s: '"%s"' % s  # noqa: E731
         mv = 'move /Y' if kind == 'file' else 'move'
         rm = (lambda x: 'if exist %s rmdir /S /Q %s' % (q(x), q(x))) if kind == 'dir' else (lambda x: 'if exist %s del /F /Q %s' % (q(x), q(x)))
@@ -576,6 +598,7 @@ start "" {exe} --fc-update-failed={ver}
 goto son
 :hata
 echo hata {ver}> {log}
+if exist {exe} start "" {exe} --fc-update-failed={ver}
 :son
 (goto) 2>NUL & del "%~f0"
 '''.format(pid=pid, rm_bak=rm(bak), mv=mv, target=q(target), bak=q(bak), new=q(new), exe=q(exe), ver=version,
@@ -590,7 +613,7 @@ echo hata {ver}> {log}
 n=0
 while kill -0 {pid} 2>/dev/null; do n=$((n+1)); [ $n -ge 240 ] && {{ echo "hata {ver}" > {log}; exit 1; }}; sleep 0.5; done
 rm -rf {bak}
-mv {target} {bak} || {{ echo "hata {ver}" > {log}; exit 1; }}
+mv {target} {bak} || {{ echo "hata {ver}" > {log}; [ -e {exe} ] && {{ {exe} --fc-update-failed={ver} >/dev/null 2>&1 & }}; exit 1; }}
 if ! mv {new} {target} || [ ! -e {exe} ]; then rm -rf {target}; mv {bak} {target}; echo "geri-alindi {ver}" > {log}; exit 1; fi
 chmod +x {exe} 2>/dev/null
 {exe} --fc-updated={ver} >/dev/null 2>&1 &
@@ -611,8 +634,67 @@ rm -f "$0"
     return path
 
 
-def _spawn_detached(args):
+INNO_SILENT = ['/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', '/CLOSEAPPLICATIONS']
+NSIS_SILENT = ['/S']
+
+
+def setup_args_for(v):
+    """'inno' → Inno Setup sessiz, 'nsis' | True → NSIS /S, liste → olduğu gibi, None → None (eski davranış)."""
+    if v is None or v is False:
+        return None
+    if v is True or v == 'nsis':
+        return list(NSIS_SILENT)
+    if v == 'inno':
+        return list(INNO_SILENT)
+    return [str(x) for x in v]
+
+
+def write_setup_script(staging, pid, setup_exe, args, relaunch=None, windows=None, version=''):
+    """Program kapanınca kurulumu sessiz çalıştırıp bitmesini bekleyen, sonra programı yeniden açan betik."""
+    os.makedirs(staging, exist_ok=True)
+    log = os.path.join(staging, 'kurulum.log')
+    if sys.platform.startswith('win') if windows is None else windows:
+        q = lambda s: '"%s"' % s  # noqa: E731
+        lines = ['@echo off', 'chcp 65001 >NUL', 'setlocal', 'set N=0', ':bekle',
+                 'tasklist /FI "PID eq {0}" 2>NUL | find "{0}" >NUL'.format(pid),
+                 'if errorlevel 1 goto kur', 'set /A N+=1', 'if %N% GEQ 120 goto kur', 'timeout /t 1 /nobreak >NUL', 'goto bekle',
+                 ':kur', 'start "" /wait {0} {1}'.format(q(setup_exe), ' '.join(args)).rstrip(),
+                 'echo kurulum %ERRORLEVEL%> {0}'.format(q(log))]
+        if relaunch:
+            lines.append('if exist {0} start "" {0} --fc-updated{1}'.format(q(relaunch), '=' + version if version else ''))
+        lines.append('(goto) 2>NUL & del "%~f0"')
+        path = os.path.join(staging, 'kurulum.cmd')
+        with open(path, 'w', encoding='utf-8', newline='\r\n') as f:
+            f.write('\n'.join(lines) + '\n')
+        return path
+    sq = lambda s: "'" + str(s).replace("'", "'\\''") + "'"  # noqa: E731
+    body = '#!/bin/sh\nn=0\nwhile kill -0 {pid} 2>/dev/null; do n=$((n+1)); [ $n -ge 240 ] && break; sleep 0.5; done\n' \
+           '{exe} {args}\necho "kurulum $?" > {log}\n'.format(pid=pid, exe=sq(setup_exe), args=' '.join(sq(a) for a in args), log=sq(log))
+    if relaunch:
+        body += '[ -e {0} ] && {{ {0} --fc-updated{1} >/dev/null 2>&1 & }}\n'.format(sq(relaunch), '=' + version if version else '')
+    body += 'rm -f "$0"\n'
+    path = os.path.join(staging, 'kurulum.sh')
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(body)
+    os.chmod(path, 0o755)
+    return path
+
+
+def _accepts_cwd(fn):
+    if fn is _spawn_detached:
+        return True
+    try:
+        import inspect
+        ps = inspect.signature(fn).parameters
+        return 'cwd' in ps or any(p.kind == p.VAR_KEYWORD for p in ps.values())
+    except (TypeError, ValueError):
+        return False
+
+
+def _spawn_detached(args, cwd=None):
     kw = {'close_fds': True, 'stdin': subprocess.DEVNULL, 'stdout': subprocess.DEVNULL, 'stderr': subprocess.DEVNULL}
+    if cwd:
+        kw['cwd'] = cwd
     if sys.platform.startswith('win'):
         kw['creationflags'] = 0x00000008 | 0x00000200 | 0x08000000  # DETACHED_PROCESS | NEW_PROCESS_GROUP | NO_WINDOW
     else:

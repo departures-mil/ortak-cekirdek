@@ -153,3 +153,10 @@ def test_lanmerge_live_against_node_random():
     exp = json.loads(r.stdout)
     for v, e in zip(vecs, exp):
         assert json.loads(json.dumps(lanmerge.merge(v['local'], v['remote']))) == e, v
+
+
+def test_icons_include_book():
+    from fccore import icons
+    from fccore._icons import PATHS
+    assert 'book' in PATHS and PATHS['book'].startswith('<path')
+    assert PATHS['book'] in icons.svg('book', '#ffffff', 1.9)
