@@ -7,7 +7,7 @@
   "module": "js/fc.mjs",
   "scripts": {
     "test": "node --check js/agent-standalone.js && node --check dist/fc-agent.js && node --test test/*.test.js",
-    "build": "node tools/build-tokens.js && node tools/bundle.js && node tools/bundle-agent.js && node tools/build-agent-py.js",
+    "build": "node tools/build-tokens.js && node tools/bundle.js && node tools/bundle-agent.js && node tools/build-agent-py.js && node tools/build-agent-net.js && node tools/build-agent-dart.js",
     "check": "node tools/build-tokens.js --check && node --test test/*.test.js"
   },
   "license": "UNLICENSED"
