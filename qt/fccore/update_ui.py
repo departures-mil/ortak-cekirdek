@@ -58,4 +58,7 @@ class UpdateController(QObject):
         return error_text(code)
 
     def _do_quit(self):
+        app = QApplication.instance()
+        if app is not None:   # güncelleme kapanışı: uygulamalar "çıkmak istiyor musunuz?" sormasın (closeEvent bunu denetler)
+            app.setProperty('fcUpdateQuit', True)
         QTimer.singleShot(900, QApplication.quit)
