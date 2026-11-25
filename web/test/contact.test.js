@@ -13,7 +13,7 @@ test('SPEC alanları stringValue olarak gider; çevrimdışıysa kuyruk, sonra b
   const f = inbox[1].fields;
   for (const k of ['tur', 'uygulama', 'surum', 'platform', 'dil', 'mesaj', 'iletisim', 'zaman', 'cihaz']) assert.ok(f[k] && typeof f[k].stringValue === 'string', k);
   assert.strictEqual(f.tur.stringValue, 'hata'); assert.strictEqual(f.surum.stringValue, '1.2.3'); assert.match(f.cihaz.stringValue, /^[0-9a-f]{18}$/);
-  assert.ok(posts.some((p) => /formsubmit\.co/.test(p[0])), 'kullanıcı mesajında yedek denenmeli');
+  assert.ok(!posts.some((p) => /formsubmit/.test(p[0])), 'kişisel e-posta yedeği yok');
   up = true; await FC.contact.flush();
   assert.strictEqual(FC.contact.queue().length, 0);
 });

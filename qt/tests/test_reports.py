@@ -82,7 +82,7 @@ def test_contact_queue_and_flush_and_mail_fallback():
         return 200, json.dumps({'success': 'true' if state['mail'] else 'false'}).encode()
     contact.init(app='o', version='1', post_fn=post, flush_delay=None)
     assert contact.send('oneri', 'merhaba') == 'queued' and len(contact.queue()) == 1
-    assert any('formsubmit.co' in u for u, _ in calls)                  # kullanıcı mesajında yedek denendi
+    assert not any('formsubmit' in u for u, _ in calls)                 # kişisel e-posta yedeği yok
     calls.clear()
     assert contact.post({'tur': 'cokme', 'mesaj': 'x'}) == 'queued'
     assert not any('formsubmit' in u for u, _ in calls)                 # çökme raporu e-posta göndermez
@@ -91,7 +91,7 @@ def test_contact_queue_and_flush_and_mail_fallback():
     assert contact.queue() == []
     state['inbox'] = False
     state['mail'] = True
-    assert contact.send('hata', 'yedekle') == 'sent'
+    assert contact.send('hata', 'yedekle') == 'queued'                  # gelen kutusu yoksa e-postaya düşmez, kuyrukta bekler
 
 
 def test_usage_counts_and_http_classifier():
