@@ -224,3 +224,23 @@ test('otomatik: arka plan indirmesi başarısızsa sessizce "available" olur (el
   for (let i = 0; i < 50 && U.state().status !== 'available'; i++) await new Promise((r) => setTimeout(r, 10));
   assert.strictEqual(U.state().status, 'available'); assert.strictEqual(U.state().error, null);
 });
+
+test('net.maxBytes: küçük indirme köprüsü (Android httpGet) büyük dosyalar için kullanılmaz', async () => {
+  U._reset();
+  const used = [];
+  FC.host = { kind: 'android', can: { update: true }, version: () => '1.0.0', update: { channel: 'android' },
+    net: { maxBytes: 10, download: async (u) => { used.push(u); return new TextEncoder().encode(JSON.stringify(manifest())); } } };
+  U.start({ repo: 'demo', app: 'demo', version: '1.56.0', autoCheck: false });
+  const p = await U.check();
+  assert.ok(p && p.version, 'manifest yerel köprüden okunur');
+  assert.strictEqual(used.length, 1);
+  delete FC.host;
+});
+test('errorText: izin ve ağ hataları anlaşılır iletiye çevrilir', () => {
+  const eski = FC.t; FC.t = (k) => k;
+  assert.strictEqual(U.errorText('IZIN'), 'fc.update.permission');
+  assert.strictEqual(U.errorText('Failed to fetch'), 'fc.update.network');
+  assert.strictEqual(U.errorText('NETWORK'), 'fc.update.network');
+  assert.strictEqual(U.errorText('HTTP_503'), 'fc.update.failed');
+  FC.t = eski;
+});

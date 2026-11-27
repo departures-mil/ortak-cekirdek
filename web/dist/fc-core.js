@@ -119,7 +119,7 @@
       'fc.sync': 'Eşitle', 'fc.sync.idle': 'Eşitlendi', 'fc.sync.syncing': 'Eşitleniyor…', 'fc.sync.error': 'Eşitleme hatası — yeniden denemek için basın', 'fc.sync.off': 'Bulut eşitleme kapalı', 'fc.sync.offline': 'İnternet yok — değişiklikler bu cihazda saklanıyor', 'fc.sync.pending': '{n} değişiklik gönderilmeyi bekliyor',
       'fc.lan': 'Wi-Fi', 'fc.lan.on': 'Wi-Fi eşitleme açık (aynı ağdaki cihazlar)', 'fc.lan.off': 'Wi-Fi eşitleme kapalı', 'fc.lan.busy': 'Wi-Fi ile eşitleniyor…',
       'fc.update': 'Güncelle', 'fc.update.check': 'Güncellemeleri denetle', 'fc.update.checking': 'Denetleniyor…', 'fc.update.none': 'Program güncel (v{v})', 'fc.update.avail': 'Yeni sürüm hazır: v{v}', 'fc.update.press': 'Tek tuşla güncellemek için basın. Kayıtlarınız korunur.', 'fc.update.ready': 'v{v} indirildi; program kapanınca kendiliğinden kurulur.', 'fc.update.now': 'Şimdi kur ve yeniden aç',
-      'fc.update.downloading': 'İndiriliyor…', 'fc.update.verifying': 'Doğrulanıyor…', 'fc.update.installing': 'Kuruluyor…', 'fc.update.restarting': 'Program yeniden başlatılıyor…', 'fc.update.done': 'Güncelleme kuruldu', 'fc.update.failed': 'Güncelleme yapılamadı: {e}', 'fc.update.fallback': 'Yama uygulanamadı, tam sürüm indiriliyor…', 'fc.update.browser': 'Yeni sürüm yayınlandı; indirme sayfası açılıyor.', 'fc.update.patchMode': 'yalnızca değişen kısımlar', 'fc.update.fullMode': 'tam paket', 'fc.update.offline': 'İnternet yok; bağlantı gelince yeniden denenecek.', 'fc.update.bad': 'İndirilen dosya doğrulanamadı (SHA-256 uyuşmuyor).',
+      'fc.update.downloading': 'İndiriliyor…', 'fc.update.verifying': 'Doğrulanıyor…', 'fc.update.installing': 'Kuruluyor…', 'fc.update.restarting': 'Program yeniden başlatılıyor…', 'fc.update.done': 'Güncelleme kuruldu', 'fc.update.failed': 'Güncelleme yapılamadı: {e}', 'fc.update.fallback': 'Yama uygulanamadı, tam sürüm indiriliyor…', 'fc.update.browser': 'Yeni sürüm yayınlandı; indirme sayfası açılıyor.', 'fc.update.patchMode': 'yalnızca değişen kısımlar', 'fc.update.fullMode': 'tam paket', 'fc.update.offline': 'İnternet yok; bağlantı gelince yeniden denenecek.', 'fc.update.bad': 'İndirilen dosya doğrulanamadı (SHA-256 uyuşmuyor).', 'fc.update.permission': 'Kurulum için "Bilinmeyen uygulamaları yükle" iznini verin, sonra Güncelle\'ye yeniden basın.', 'fc.update.network': 'Güncelleme sunucusuna ulaşılamadı; bağlantıyı denetleyip yeniden deneyin.',
       'fc.p.left': 'kalan {x}', 'fc.p.speed': 'MB/sn', 'fc.p.calc': 'hız hesaplanıyor…', 'fc.p.done': 'İndirildi',
       'fc.theme': 'Tema', 'fc.theme.dark': 'Koyu', 'fc.theme.light': 'Açık', 'fc.theme.auto': 'Otomatik', 'fc.theme.toggle': 'Koyu / açık tema', 'fc.font': 'Yazı boyutu', 'fc.font.smaller': 'Yazıyı küçült', 'fc.font.larger': 'Yazıyı büyüt', 'fc.font.reset': 'Varsayılan', 'fc.look': 'Görünüm', 'fc.look.desc': 'Tema, yazı boyutu ve dil bu cihazda saklanır.',
       'fc.win.minimize': 'Küçült', 'fc.win.half': 'Orta boyut', 'fc.win.restore': 'Tam ekrana dön', 'fc.win.fullscreen': 'Tam ekran', 'fc.win.close': 'Kapat',
@@ -141,7 +141,7 @@
       'fc.sync': 'Sync', 'fc.sync.idle': 'Synced', 'fc.sync.syncing': 'Syncing…', 'fc.sync.error': 'Sync error — press to try again', 'fc.sync.off': 'Cloud sync is off', 'fc.sync.offline': 'No internet — changes are kept on this device', 'fc.sync.pending': '{n} changes waiting to be sent',
       'fc.lan': 'Wi-Fi', 'fc.lan.on': 'Wi-Fi sync is on (devices on the same network)', 'fc.lan.off': 'Wi-Fi sync is off', 'fc.lan.busy': 'Syncing over Wi-Fi…',
       'fc.update': 'Update', 'fc.update.check': 'Check for updates', 'fc.update.checking': 'Checking…', 'fc.update.none': 'Up to date (v{v})', 'fc.update.avail': 'New version ready: v{v}', 'fc.update.press': 'Press once to update. Your records are kept.', 'fc.update.ready': 'v{v} downloaded; it installs by itself when the program closes.', 'fc.update.now': 'Install now and reopen',
-      'fc.update.downloading': 'Downloading…', 'fc.update.verifying': 'Verifying…', 'fc.update.installing': 'Installing…', 'fc.update.restarting': 'Restarting the program…', 'fc.update.done': 'Update installed', 'fc.update.failed': 'Update failed: {e}', 'fc.update.fallback': 'The patch could not be applied; downloading the full version…', 'fc.update.browser': 'A new version is out; opening the download page.', 'fc.update.patchMode': 'changed parts only', 'fc.update.fullMode': 'full package', 'fc.update.offline': 'No internet; will try again when online.', 'fc.update.bad': 'The downloaded file could not be verified (SHA-256 mismatch).',
+      'fc.update.downloading': 'Downloading…', 'fc.update.verifying': 'Verifying…', 'fc.update.installing': 'Installing…', 'fc.update.restarting': 'Restarting the program…', 'fc.update.done': 'Update installed', 'fc.update.failed': 'Update failed: {e}', 'fc.update.fallback': 'The patch could not be applied; downloading the full version…', 'fc.update.browser': 'A new version is out; opening the download page.', 'fc.update.patchMode': 'changed parts only', 'fc.update.fullMode': 'full package', 'fc.update.offline': 'No internet; will try again when online.', 'fc.update.bad': 'The downloaded file could not be verified (SHA-256 mismatch).', 'fc.update.permission': 'Allow "Install unknown apps" for the installation, then press Update again.', 'fc.update.network': 'The update server could not be reached; check the connection and try again.',
       'fc.p.left': '{x} left', 'fc.p.speed': 'MB/s', 'fc.p.calc': 'measuring speed…', 'fc.p.done': 'Downloaded',
       'fc.theme': 'Theme', 'fc.theme.dark': 'Dark', 'fc.theme.light': 'Light', 'fc.theme.auto': 'Auto', 'fc.theme.toggle': 'Dark / light theme', 'fc.font': 'Text size', 'fc.font.smaller': 'Smaller text', 'fc.font.larger': 'Larger text', 'fc.font.reset': 'Default', 'fc.look': 'Appearance', 'fc.look.desc': 'Theme, text size and language are stored on this device.',
       'fc.win.minimize': 'Minimize', 'fc.win.half': 'Half size', 'fc.win.restore': 'Back to full screen', 'fc.win.fullscreen': 'Full screen', 'fc.win.close': 'Close',
@@ -163,7 +163,7 @@
       'fc.sync': 'مزامنة', 'fc.sync.idle': 'تمت المزامنة', 'fc.sync.syncing': 'جارٍ المزامنة…', 'fc.sync.error': 'خطأ في المزامنة — اضغط لإعادة المحاولة', 'fc.sync.off': 'المزامنة السحابية متوقفة', 'fc.sync.offline': 'لا يوجد اتصال بالإنترنت — التغييرات محفوظة على هذا الجهاز', 'fc.sync.pending': '{n} تغييرات بانتظار الإرسال',
       'fc.lan': 'Wi-Fi', 'fc.lan.on': 'مزامنة Wi-Fi مفعّلة (الأجهزة على الشبكة نفسها)', 'fc.lan.off': 'مزامنة Wi-Fi متوقفة', 'fc.lan.busy': 'جارٍ المزامنة عبر Wi-Fi…',
       'fc.update': 'تحديث', 'fc.update.check': 'التحقق من التحديثات', 'fc.update.checking': 'جارٍ التحقق…', 'fc.update.none': 'البرنامج محدَّث (v{v})', 'fc.update.avail': 'إصدار جديد جاهز: v{v}', 'fc.update.press': 'اضغط مرة واحدة للتحديث. تبقى سجلاتك محفوظة.', 'fc.update.ready': 'تم تنزيل v{v}؛ يُثبَّت تلقائياً عند إغلاق البرنامج.', 'fc.update.now': 'ثبّت الآن وأعد الفتح',
-      'fc.update.downloading': 'جارٍ التنزيل…', 'fc.update.verifying': 'جارٍ التحقق من الملف…', 'fc.update.installing': 'جارٍ التثبيت…', 'fc.update.restarting': 'جارٍ إعادة تشغيل البرنامج…', 'fc.update.done': 'تم تثبيت التحديث', 'fc.update.failed': 'تعذّر التحديث: {e}', 'fc.update.fallback': 'تعذّر تطبيق التصحيح؛ جارٍ تنزيل الإصدار الكامل…', 'fc.update.browser': 'صدر إصدار جديد؛ جارٍ فتح صفحة التنزيل.', 'fc.update.patchMode': 'الأجزاء المتغيرة فقط', 'fc.update.fullMode': 'الحزمة الكاملة', 'fc.update.offline': 'لا يوجد اتصال؛ ستُعاد المحاولة عند عودة الإنترنت.', 'fc.update.bad': 'تعذّر التحقق من الملف المنزَّل (بصمة SHA-256 غير مطابقة).',
+      'fc.update.downloading': 'جارٍ التنزيل…', 'fc.update.verifying': 'جارٍ التحقق من الملف…', 'fc.update.installing': 'جارٍ التثبيت…', 'fc.update.restarting': 'جارٍ إعادة تشغيل البرنامج…', 'fc.update.done': 'تم تثبيت التحديث', 'fc.update.failed': 'تعذّر التحديث: {e}', 'fc.update.fallback': 'تعذّر تطبيق التصحيح؛ جارٍ تنزيل الإصدار الكامل…', 'fc.update.browser': 'صدر إصدار جديد؛ جارٍ فتح صفحة التنزيل.', 'fc.update.patchMode': 'الأجزاء المتغيرة فقط', 'fc.update.fullMode': 'الحزمة الكاملة', 'fc.update.offline': 'لا يوجد اتصال؛ ستُعاد المحاولة عند عودة الإنترنت.', 'fc.update.bad': 'تعذّر التحقق من الملف المنزَّل (بصمة SHA-256 غير مطابقة).', 'fc.update.permission': 'اسمح بـ«تثبيت التطبيقات غير المعروفة» للتثبيت، ثم اضغط «تحديث» مرة أخرى.', 'fc.update.network': 'تعذّر الوصول إلى خادم التحديث؛ تحقّق من الاتصال ثم أعد المحاولة.',
       'fc.p.left': 'متبقٍّ {x}', 'fc.p.speed': 'م.ب/ث', 'fc.p.calc': 'جارٍ قياس السرعة…', 'fc.p.done': 'اكتمل التنزيل',
       'fc.theme': 'السمة', 'fc.theme.dark': 'داكنة', 'fc.theme.light': 'فاتحة', 'fc.theme.auto': 'تلقائية', 'fc.theme.toggle': 'سمة داكنة / فاتحة', 'fc.font': 'حجم الخط', 'fc.font.smaller': 'تصغير الخط', 'fc.font.larger': 'تكبير الخط', 'fc.font.reset': 'الافتراضي', 'fc.look': 'المظهر', 'fc.look.desc': 'تُحفظ السمة وحجم الخط واللغة على هذا الجهاز.',
       'fc.win.minimize': 'تصغير', 'fc.win.half': 'نصف الحجم', 'fc.win.restore': 'العودة إلى ملء الشاشة', 'fc.win.fullscreen': 'ملء الشاشة', 'fc.win.close': 'إغلاق',
@@ -327,7 +327,13 @@
    <html> öğesine fc-host-<tür> sınıfı eklenir.
    Android köprüsünün güncelleme sözleşmesi (yerel tarafta uygulanır):
      updateBegin(kind 'patch'|'full', metaJson) → true · updateChunk(base64) → true · updateFinish() → '{"ok":true}' ya da '{"ok":false,"error":"..."}'
-     Yerel taraf yamayı kurulu APK'ya (applicationInfo.sourceDir) uygular, meta.targetSha256 ile doğrular ve kurulumu başlatır. */
+     Yerel taraf yamayı kurulu APK'ya (applicationInfo.sourceDir) uygular, meta.targetSha256 ile doğrular ve kurulumu başlatır.
+   Android ağ köprüsü (önerilen; WebView https://appassets.androidplatform.net ya da file:// kaynağından GitHub'a fetch YAPAMAZ —
+   github.com yönlendirmesi CORS başlığı vermez → "Failed to fetch"):
+     httpGet(id, url)      → yerel indirme (≤ 2 MB metin, ör. latest.json); sonuç window.__fcHttp(id, {status, body} | {error})
+     apkUpdate(planJson)   → indirme + yama + SHA-256 + kurulum tamamen yerelde; olaylar window.__fcApk({type:'progress', patch, done,
+                             total, finished} | {type:'patchFailed', error} | {type:'installing'} | {type:'done', result} | {type:'error', error})
+     Varsa çekirdek bunları kendiliğinden kullanır: FC.host.net.download (manifest) ve FC.host.update.run (Güncelle). */
 (function (g) {
   'use strict';
   var FC = g.FC = g.FC || {};
@@ -371,6 +377,54 @@
     for (var i = 0; i < bytes.length; i += CH) s += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
     return g.btoa(s);
   }
+  var HTTP_MAX = 2 * 1024 * 1024, httpSeq = 0, httpWait = {};
+  /* Yerel httpGet: WebView CORS'una takılmadan küçük dosya (latest.json) indirir. */
+  function androidNet(a) {
+    g.__fcHttp = function (id, r) { var f = httpWait[id]; if (f) { delete httpWait[id]; f(r || {}); } };
+    function get(url) {
+      return new Promise(function (resolve, reject) {
+        var id = 'h' + (++httpSeq) + '_' + Date.now();
+        var to = setTimeout(function () { delete httpWait[id]; reject(Object.assign(new Error('TIMEOUT'), { code: 'TIMEOUT' })); }, 45000);
+        httpWait[id] = function (r) {
+          clearTimeout(to);
+          if (r.error) reject(Object.assign(new Error(String(r.error)), { code: 'NETWORK' }));
+          else if (r.status !== 200) reject(Object.assign(new Error('HTTP_' + r.status), { code: 'HTTP_' + r.status }));
+          else resolve(String(r.body || ''));
+        };
+        try { a.httpGet(id, url); } catch (e) { clearTimeout(to); delete httpWait[id]; reject(e); }
+      });
+    }
+    return {
+      maxBytes: HTTP_MAX,
+      download: function (url, onProgress) {
+        return get(url).then(function (t) {
+          var b = new TextEncoder().encode(t);
+          if (onProgress) try { onProgress({ done: b.length, finished: true }); } catch (e) { /* yok */ }
+          return b;
+        });
+      }
+    };
+  }
+  /* Yerel apkUpdate: indirme + yama + doğrulama + kurulum Java'da (büyük APK JS'ye taşınmaz, CORS yok). */
+  function androidRun(a) {
+    return function (plan, onEv) {
+      onEv = onEv || function () {};
+      return new Promise(function (resolve, reject) {
+        g.__fcApk = function (ev) {
+          if (!ev) return;
+          if (ev.type === 'progress') onEv({ patch: !!ev.patch, done: ev.done, total: ev.total, finished: !!ev.finished });
+          else if (ev.type === 'patchFailed') onEv({ patchFailed: true, error: ev.error });
+          else if (ev.type === 'installing') onEv({ installing: true });
+          else if (ev.type === 'done') resolve(ev.result || 'done');
+          else if (ev.type === 'error') reject(Object.assign(new Error(ev.error || 'FAILED'), { code: ev.error || 'FAILED' }));
+        };
+        try {
+          a.apkUpdate(JSON.stringify({ version: plan.version, full: plan.full,
+            patch: plan.mode === 'patch' ? { url: plan.url, sha256: plan.sha256, size: plan.size } : null }));
+        } catch (e) { reject(e); }
+      });
+    };
+  }
   function android(a) {
     function has(n) { return typeof a[n] === 'function'; }
     function send(kind, bytes, meta) {
@@ -394,7 +448,7 @@
     }
     return {
       kind: 'android', platform: 'android',
-      can: { minimize: false, half: false, fullscreen: has('toggleFullscreen'), close: has('moveTaskToBack'), update: has('updateBegin') },
+      can: { minimize: false, half: false, fullscreen: has('toggleFullscreen'), close: has('moveTaskToBack'), update: has('updateBegin') || has('apkUpdate') },
       window: {
         minimize: noop, half: noop,
         toggleFullscreen: function () { if (has('toggleFullscreen')) a.toggleFullscreen(); return noop(); },
@@ -404,9 +458,10 @@
       update: {
         channel: 'android',
         applyPatch: function (bytes, meta) { return send('patch', bytes, meta); },
-        installFull: function (bytes, meta) { return send('full', bytes, meta); }
+        installFull: function (bytes, meta) { return send('full', bytes, meta); },
+        run: has('apkUpdate') ? androidRun(a) : undefined
       },
-      net: null,
+      net: has('httpGet') ? androidNet(a) : null,
       onMainError: function () { return function () {}; },
       openExternal: has('openExternal') ? function (u) { a.openExternal(u); } : null,
       version: function () { try { return has('appVersion') ? String(a.appVersion()) : ''; } catch (e) { return ''; } }
@@ -770,7 +825,7 @@
   function online() { return !(g.navigator && g.navigator.onLine === false); }
   async function getBytes(url, o) {
     var h = host();
-    if (!cfg.fetch && h.net && h.net.download) {
+    if (!cfg.fetch && h.net && h.net.download && !(h.net.maxBytes && o.total > h.net.maxBytes)) {
       var tr = FC.progress.tracker(o.total);
       var b = await h.net.download(url, function (d) { if (o.onProgress) o.onProgress(tr.update(d.done != null ? d.done : d, d.finished)); });
       return b instanceof Uint8Array ? b : new Uint8Array(b);
@@ -935,6 +990,8 @@
     var t = FC.t || function (k) { return k; };
     if (code === 'BAD_HASH') return t('fc.update.bad');
     if (code === 'OFFLINE') return t('fc.update.offline');
+    if (code === 'IZIN' || code === 'PERMISSION') return t('fc.update.permission');
+    if (code === 'NETWORK' || code === 'TIMEOUT' || /failed to fetch/i.test(String(code))) return t('fc.update.network');
     return t('fc.update.failed', { e: code });
   }
   var api = { start: start, check: check, run: run, subscribe: subscribe, state: snapshot, errorText: errorText, plan: plan, cmp: cmp, parse: parse, sha256: sha256, manifestUrl: manifestUrl, assetUrl: assetUrl, _reset: function () { cfg = {}; subs = []; running = false; state = { status: 'idle', current: '', plan: null, progress: null, mode: null, error: null, checkedAt: null }; if (timer) clearInterval(timer); timer = null; }, _config: function (c) { cfg = c; } };

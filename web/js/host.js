@@ -11,7 +11,13 @@
    <html> öğesine fc-host-<tür> sınıfı eklenir.
    Android köprüsünün güncelleme sözleşmesi (yerel tarafta uygulanır):
      updateBegin(kind 'patch'|'full', metaJson) → true · updateChunk(base64) → true · updateFinish() → '{"ok":true}' ya da '{"ok":false,"error":"..."}'
-     Yerel taraf yamayı kurulu APK'ya (applicationInfo.sourceDir) uygular, meta.targetSha256 ile doğrular ve kurulumu başlatır. */
+     Yerel taraf yamayı kurulu APK'ya (applicationInfo.sourceDir) uygular, meta.targetSha256 ile doğrular ve kurulumu başlatır.
+   Android ağ köprüsü (önerilen; WebView https://appassets.androidplatform.net ya da file:// kaynağından GitHub'a fetch YAPAMAZ —
+   github.com yönlendirmesi CORS başlığı vermez → "Failed to fetch"):
+     httpGet(id, url)      → yerel indirme (≤ 2 MB metin, ör. latest.json); sonuç window.__fcHttp(id, {status, body} | {error})
+     apkUpdate(planJson)   → indirme + yama + SHA-256 + kurulum tamamen yerelde; olaylar window.__fcApk({type:'progress', patch, done,
+                             total, finished} | {type:'patchFailed', error} | {type:'installing'} | {type:'done', result} | {type:'error', error})
+     Varsa çekirdek bunları kendiliğinden kullanır: FC.host.net.download (manifest) ve FC.host.update.run (Güncelle). */
 (function (g) {
   'use strict';
   var FC = g.FC = g.FC || {};
@@ -55,6 +61,54 @@
     for (var i = 0; i < bytes.length; i += CH) s += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
     return g.btoa(s);
   }
+  var HTTP_MAX = 2 * 1024 * 1024, httpSeq = 0, httpWait = {};
+  /* Yerel httpGet: WebView CORS'una takılmadan küçük dosya (latest.json) indirir. */
+  function androidNet(a) {
+    g.__fcHttp = function (id, r) { var f = httpWait[id]; if (f) { delete httpWait[id]; f(r || {}); } };
+    function get(url) {
+      return new Promise(function (resolve, reject) {
+        var id = 'h' + (++httpSeq) + '_' + Date.now();
+        var to = setTimeout(function () { delete httpWait[id]; reject(Object.assign(new Error('TIMEOUT'), { code: 'TIMEOUT' })); }, 45000);
+        httpWait[id] = function (r) {
+          clearTimeout(to);
+          if (r.error) reject(Object.assign(new Error(String(r.error)), { code: 'NETWORK' }));
+          else if (r.status !== 200) reject(Object.assign(new Error('HTTP_' + r.status), { code: 'HTTP_' + r.status }));
+          else resolve(String(r.body || ''));
+        };
+        try { a.httpGet(id, url); } catch (e) { clearTimeout(to); delete httpWait[id]; reject(e); }
+      });
+    }
+    return {
+      maxBytes: HTTP_MAX,
+      download: function (url, onProgress) {
+        return get(url).then(function (t) {
+          var b = new TextEncoder().encode(t);
+          if (onProgress) try { onProgress({ done: b.length, finished: true }); } catch (e) { /* yok */ }
+          return b;
+        });
+      }
+    };
+  }
+  /* Yerel apkUpdate: indirme + yama + doğrulama + kurulum Java'da (büyük APK JS'ye taşınmaz, CORS yok). */
+  function androidRun(a) {
+    return function (plan, onEv) {
+      onEv = onEv || function () {};
+      return new Promise(function (resolve, reject) {
+        g.__fcApk = function (ev) {
+          if (!ev) return;
+          if (ev.type === 'progress') onEv({ patch: !!ev.patch, done: ev.done, total: ev.total, finished: !!ev.finished });
+          else if (ev.type === 'patchFailed') onEv({ patchFailed: true, error: ev.error });
+          else if (ev.type === 'installing') onEv({ installing: true });
+          else if (ev.type === 'done') resolve(ev.result || 'done');
+          else if (ev.type === 'error') reject(Object.assign(new Error(ev.error || 'FAILED'), { code: ev.error || 'FAILED' }));
+        };
+        try {
+          a.apkUpdate(JSON.stringify({ version: plan.version, full: plan.full,
+            patch: plan.mode === 'patch' ? { url: plan.url, sha256: plan.sha256, size: plan.size } : null }));
+        } catch (e) { reject(e); }
+      });
+    };
+  }
   function android(a) {
     function has(n) { return typeof a[n] === 'function'; }
     function send(kind, bytes, meta) {
@@ -78,7 +132,7 @@
     }
     return {
       kind: 'android', platform: 'android',
-      can: { minimize: false, half: false, fullscreen: has('toggleFullscreen'), close: has('moveTaskToBack'), update: has('updateBegin') },
+      can: { minimize: false, half: false, fullscreen: has('toggleFullscreen'), close: has('moveTaskToBack'), update: has('updateBegin') || has('apkUpdate') },
       window: {
         minimize: noop, half: noop,
         toggleFullscreen: function () { if (has('toggleFullscreen')) a.toggleFullscreen(); return noop(); },
@@ -88,9 +142,10 @@
       update: {
         channel: 'android',
         applyPatch: function (bytes, meta) { return send('patch', bytes, meta); },
-        installFull: function (bytes, meta) { return send('full', bytes, meta); }
+        installFull: function (bytes, meta) { return send('full', bytes, meta); },
+        run: has('apkUpdate') ? androidRun(a) : undefined
       },
-      net: null,
+      net: has('httpGet') ? androidNet(a) : null,
       onMainError: function () { return function () {}; },
       openExternal: has('openExternal') ? function (u) { a.openExternal(u); } : null,
       version: function () { try { return has('appVersion') ? String(a.appVersion()) : ''; } catch (e) { return ''; } }

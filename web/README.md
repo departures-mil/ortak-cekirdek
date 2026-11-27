@@ -69,6 +69,10 @@ Daha iyisi — indirmeyi de Java yapsın (WebView'de CORS yok, büyük APK JS'ye
 tanımlayın (ör. `ApkPatchInstaller.obtainApk(plan.full.url, …, plan.mode === 'patch' ? plan.url : null, …)` + `install`). Varsa çekirdek
 indirmeyi atlar; ilerleme olayları `{patch, done, total, finished}`, `{patchFailed:true, error}`, `{installing:true}`; dönüş `'done'`
 (kurulum ekranı açıldı) ya da `'restarting'`. androidx'siz kabuk: `delta/java/noandroidx`.
+**Zorunlu (CORS):** WebView (`appassets.androidplatform.net` / `file://`) GitHub'a `fetch` yapamaz ("Failed to fetch"). Köprüye şu iki yöntemi
+ekleyin; çekirdek bunları kendiliğinden kullanır: `httpGet(id, url)` → `window.__fcHttp(id, {status, body} | {error})` (latest.json, ≤ 2 MB) ve
+`apkUpdate(planJson)` → `window.__fcApk({type:'progress'|'patchFailed'|'installing'|'done'|'error', …})` (indirme + yama + kurulum yerelde).
+Örnek Java: Bereket Defter `FcGuncelle.java` (`httpGet`, `apkUpdate`).
 
 ## Kendi CSS'i olan uygulamalar: `core-scoped.css`
 

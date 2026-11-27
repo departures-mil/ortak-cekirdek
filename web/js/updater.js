@@ -68,7 +68,7 @@
   function online() { return !(g.navigator && g.navigator.onLine === false); }
   async function getBytes(url, o) {
     var h = host();
-    if (!cfg.fetch && h.net && h.net.download) {
+    if (!cfg.fetch && h.net && h.net.download && !(h.net.maxBytes && o.total > h.net.maxBytes)) {
       var tr = FC.progress.tracker(o.total);
       var b = await h.net.download(url, function (d) { if (o.onProgress) o.onProgress(tr.update(d.done != null ? d.done : d, d.finished)); });
       return b instanceof Uint8Array ? b : new Uint8Array(b);
@@ -233,6 +233,8 @@
     var t = FC.t || function (k) { return k; };
     if (code === 'BAD_HASH') return t('fc.update.bad');
     if (code === 'OFFLINE') return t('fc.update.offline');
+    if (code === 'IZIN' || code === 'PERMISSION') return t('fc.update.permission');
+    if (code === 'NETWORK' || code === 'TIMEOUT' || /failed to fetch/i.test(String(code))) return t('fc.update.network');
     return t('fc.update.failed', { e: code });
   }
   var api = { start: start, check: check, run: run, subscribe: subscribe, state: snapshot, errorText: errorText, plan: plan, cmp: cmp, parse: parse, sha256: sha256, manifestUrl: manifestUrl, assetUrl: assetUrl, _reset: function () { cfg = {}; subs = []; running = false; state = { status: 'idle', current: '', plan: null, progress: null, mode: null, error: null, checkedAt: null }; if (timer) clearInterval(timer); timer = null; }, _config: function (c) { cfg = c; } };
