@@ -1,0 +1,89 @@
+name: Yerel zeka paketleri
+
+# Çevrimdışı OCR (PaddleOCR PP-OCRv5 + Tesseract) ve çeviri (NLLB-200) paketlerini hazırlar, uçtan uca dener,
+# "yerel-zeka-v1" ön sürümüne yükler. Uygulamalar paketleri buradan indirir (bir kez; program güncellemesinden bağımsız).
+on:
+  workflow_dispatch:
+    inputs:
+      yayinla:
+        description: 'Denemeler geçerse sürüme yükle'
+        type: boolean
+        default: true
+  push:
+    branches: [main]
+    paths: ['web/yerel-zeka/**', '.github/workflows/yerel-zeka.yml']
+
+permissions:
+  contents: write
+
+env:
+  ETIKET: yerel-zeka-v1
+  OCR_KAYNAK: https://github.com/GreatV/oar-ocr/releases/download/v0.3.0
+  NLLB: https://huggingface.co/Xenova/nllb-200-distilled-600M/resolve/main
+
+jobs:
+  paketle:
+    name: Paketle + uçtan uca dene
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Yer aç
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL; df -h /
+
+      - name: OCR modelleri (SHA-256 sabit)
+        run: |
+          set -e; mkdir -p /tmp/ocr/tessdata; cd /tmp/ocr
+          while read -r sum f; do curl -fsSL --retry 3 -o "$f" "$OCR_KAYNAK/$f"; echo "$sum  $f" | sha256sum -c -; done <<'EOF'
+          9a910baffbefb807ff2f7bfaa72910e3e470bd17014d798386d87bb46f442839 pp-ocrv5_server_det.onnx
+          1eb7b4f7ab657ebd1c66d5f79bca7497f29768a2e3c15e52daecbba1a8e4a039 pp-ocrv5_mobile_det.onnx
+          e3a6bfeea1c8a01d6fccfd480a0bd363fd907f8c65931e228bb2736f5c3e142f latin_pp-ocrv5_mobile_rec.onnx
+          2768206d9a0ce48eba45b59619184e18161dde8f44115f029920ca17a9dc0384 arabic_pp-ocrv5_mobile_rec.onnx
+          ccbcc45730b3fbbd9050c5bc74db6a99067141ef1035e3d14889a84a6b9b1aff ppocrv5_latin_dict.txt
+          7f92f7dbb9b75a4787a83bfb4f6d14a8ab515525130c9d40a9036f61cf6999e9 ppocrv5_arabic_dict.txt
+          EOF
+          for l in tur eng; do npm pack --silent @tesseract.js-data/$l@1.0.0 >/dev/null; tar xzf tesseract.js-data-$l-1.0.0.tgz; cp package/4.0.0_best_int/$l.traineddata.gz tessdata/; rm -rf package *.tgz; done
+          echo "384ba0dc28040451b7818d7d60e0a88df0d3003fa5a01d713a468779bc3d8c04  tessdata/tur.traineddata.gz" | sha256sum -c -
+          echo "45b4cb346724ac1774f1c36f42f182b887bcdb28ebe63e6fff90ac41f3fcff91  tessdata/eng.traineddata.gz" | sha256sum -c -
+
+      - name: NLLB-200 çeviri modeli (tam duyarlık)
+        run: |
+          set -e; mkdir -p /tmp/nllb/onnx; cd /tmp/nllb
+          for f in config.json generation_config.json tokenizer.json tokenizer_config.json special_tokens_map.json; do curl -fsSL --retry 3 -o $f "$NLLB/$f" || rm -f $f; done
+          for f in encoder_model.onnx decoder_model_merged.onnx; do curl -fSL --retry 3 -o onnx/$f "$NLLB/onnx/$f"; done
+          ls -la . onnx; sha256sum onnx/*
+
+      - name: Paketleri hazırla
+        working-directory: web/yerel-zeka
+        run: |
+          set -e
+          node araclar/paket-yap.js runtime linux-x64 /tmp/paket
+          node araclar/paket-yap.js runtime win32-x64 /tmp/paket
+          node araclar/paket-yap.js ocr /tmp/ocr /tmp/paket
+          node araclar/paket-yap.js mt /tmp/nllb /tmp/paket
+          node araclar/paket-yap.js manifest /tmp/paket "${GITHUB_RUN_NUMBER}"
+          ls -la /tmp/paket
+
+      - name: Uçtan uca (indir → kur → OCR → çeviri)
+        working-directory: web/yerel-zeka
+        run: |
+          set -e
+          mkdir -p /tmp/e2e && (cd /tmp/e2e && npm init -y >/dev/null && npm i --silent sharp@0.34)
+          cd /tmp/e2e && node $GITHUB_WORKSPACE/web/yerel-zeka/araclar/e2e.js /tmp/paket ocr mt
+
+      - name: Sürüme yükle
+        if: github.event_name == 'push' || inputs.yayinla
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          gh release view "$ETIKET" >/dev/null 2>&1 || gh release create "$ETIKET" --prerelease --target "$GITHUB_SHA" --title "Yerel zeka paketleri (çevrimdışı OCR + çeviri)" \
+            --notes "Uygulamaların Ayarlar → Çevrimdışı yapay zekâ kartından indirilir. PaddleOCR PP-OCRv5 + Tesseract (Apache-2.0), NLLB-200 (Meta, CC-BY-NC-4.0), onnxruntime-node (MIT), transformers.js (Apache-2.0)."
+          cd /tmp/paket
+          # büyük modeller önce, liste (paketler.json) en son: istemciler yarım yükleme görmez
+          gh release upload "$ETIKET" nllb600-*.onnx mt-meta.tar ocr.tar runtime-*.tar --clobber
+          gh release upload "$ETIKET" paketler.json --clobber
+          gh release view "$ETIKET" --json assets --jq '.assets[] | "\(.name) \(.size)"'
