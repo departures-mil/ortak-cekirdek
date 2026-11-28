@@ -15,6 +15,7 @@ const https = require('https');
 const http = require('http');
 const crypto = require('crypto');
 const { Worker } = require('worker_threads');
+const os = require('os');
 const tar = require('./fc-tar');
 
 const RELEASE = 'https://github.com/departures-mil/ortak-cekirdek/releases/download/yerel-zeka-v1/';
@@ -26,7 +27,7 @@ function install(opt) {
   const platKey = process.platform + '-' + process.arch;
   const here = __dirname;
   const REL = opt.releaseUrl || RELEASE, MAN = REL + 'paketler.json';
-  let manifest = null, busy = null, worker = null, seq = 0;
+  let manifest = null, busy = null, worker = null, seq = 0, memo = null, memoFor = null;
   const pending = new Map(), listeners = new Set();
 
   const readJson = (f, d) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch (e) { return d; } };
@@ -52,14 +53,34 @@ function install(opt) {
     manifest = readJson(path.join(root, 'paketler.json'), null) || readJson(path.join(here, 'paketler.json'), null);
     return manifest;
   }
-  function packFiles(m, name) { // runtime → platforma göre
-    const p = m && m.packs && (m.packs[name === 'runtime' ? 'runtime-' + platKey : name]);
-    return p ? p.files : null;
+  // llm: TranslateGemma — 16 GB+ bellekte 12B (en yüksek kalite), daha azında 4B
+  const ramGB = os.totalmem() / 1073741824;
+  function packKey(m, name) {
+    if (name === 'runtime') return 'runtime-' + platKey;
+    if (name === 'llm') { const want = (state().settings || {}).llmSize || (ramGB >= 15 ? '12b' : '4b'); return m && m.packs && m.packs['llm-' + want] ? 'llm-' + want : 'llm-4b'; }
+    return name;
+  }
+  function packFiles(m, name) { const p = m && m.packs && m.packs[packKey(m, name)]; return p ? p.files : null; }
+
+  function packVer(m, n) { const p = m.packs[packKey(m, n)]; return (p && p.version) || p.files.map((f) => f.sha256).join('').slice(0, 16); }
+
+  async function downloadParts(file, dest, prog, signal) { // >2 GB modeller sürümde parçalı durur; burada birleştirilir
+    const dir = dest + '.parcalar', hash = crypto.createHash('sha256');
+    for (const [i, p] of file.parts.entries()) await download(Object.assign({}, p, { asset: p.asset }), path.join(dir, String(i).padStart(3, '0')), prog, signal);
+    const tmp = dest + '.birlesik', out = fs.openSync(tmp, 'w'), buf = Buffer.alloc(8 << 20);
+    try {
+      for (const [i] of file.parts.entries()) {
+        const f = path.join(dir, String(i).padStart(3, '0')), fd = fs.openSync(f, 'r'); let n;
+        while ((n = fs.readSync(fd, buf, 0, buf.length, null)) > 0) { hash.update(buf.subarray(0, n)); fs.writeSync(out, buf, 0, n); }
+        fs.closeSync(fd);
+      }
+    } finally { fs.closeSync(out); }
+    if (file.sha256 && hash.digest('hex') !== file.sha256) { fs.rmSync(dir, { recursive: true, force: true }); fs.unlinkSync(tmp); throw new Error('SHA-256 tutmadı: ' + file.asset); }
+    fs.renameSync(tmp, dest); fs.rmSync(dir, { recursive: true, force: true });
   }
 
-  function packVer(m, n) { const p = m.packs[n === 'runtime' ? 'runtime-' + platKey : n]; return (p && p.version) || p.files.map((f) => f.sha256).join('').slice(0, 16); }
-
   async function download(file, dest, prog, signal) {
+    if (file.parts) return downloadParts(file, dest, prog, signal);
     const part = dest + '.part'; fs.mkdirSync(path.dirname(dest), { recursive: true });
     let have = fs.existsSync(part) ? fs.statSync(part).size : 0;
     if (have > file.size) { fs.unlinkSync(part); have = 0; }
@@ -99,6 +120,9 @@ function install(opt) {
     }
     if (!todo.length) return state();
     const total = todo.reduce((s, p) => s + p.files.reduce((a, f) => a + f.size, 0), 0);
+    if (todo.some((p) => p.name === 'llm' || p.name === 'mt')) { // disk alanı denetimi
+      try { const st2 = fs.statfsSync ? fs.statfsSync(root) : null; if (st2 && st2.bavail * st2.bsize < total * 1.15) throw new Error('Diskte yeterli yer yok: ' + (total * 1.15 / 1073741824).toFixed(1) + ' GB gerekli'); } catch (e) { if (/Diskte/.test(e.message)) throw e; }
+    }
     let done = 0, t0 = Date.now(), lastT = t0, lastD = 0, speed = 0, lastEmit = 0;
     const handlers = new Set(), signal = { on: (f) => handlers.add(f) };
     busy = { cancel: () => { for (const f of handlers) f(); } };
@@ -142,15 +166,15 @@ function install(opt) {
     const s = state(), m = manifest || readJson(path.join(root, 'paketler.json'), null) || readJson(path.join(here, 'paketler.json'), null);
     const size = (n) => { const f = packFiles(m, n); return f ? f.reduce((a, x) => a + x.size, 0) : null; };
     return { root, platform: platKey, supported: !!(m && packFiles(m, 'runtime')), busy: !!busy, version: m && m.version,
-      packs: Object.fromEntries(['runtime', 'ocr', 'mt'].map((n) => [n, { installed: !!s.packs[n], bytes: size(n), update: !!(s.packs[n] && m && packFiles(m, n) && s.packs[n].version !== packVer(m, n)) }])),
-      ocr: ready(['runtime', 'ocr']), mt: ready(['runtime', 'mt']), settings: s.settings || {} };
+      packs: Object.fromEntries(['runtime', 'ocr', 'mt', 'llm'].map((n) => [n, { installed: !!s.packs[n], bytes: size(n), variant: m && n === 'llm' ? packKey(m, n) : undefined, update: !!(s.packs[n] && m && packFiles(m, n) && s.packs[n].version !== packVer(m, n)) }])),
+      ramGB: Math.round(ramGB), ocr: ready(['runtime', 'ocr']), mt: ready(['runtime', 'mt']) || ready(['runtime', 'llm']), llm: ready(['runtime', 'llm']), settings: s.settings || {} };
   }
 
   function startWorker() {
     if (worker) return worker;
     const src = (f) => fs.readFileSync(path.join(here, f), 'utf8');
     const settings = state().settings || {};
-    worker = new Worker(src('yz-worker.js'), { eval: true, workerData: { packDir: root, sources: { ocr: src('fc-ocr.js'), mt: src('fc-mt.js') }, gpu: settings.gpu !== false, ollama: settings.ollama !== false } });
+    worker = new Worker(src('yz-worker.js'), { eval: true, workerData: { packDir: root, sources: { ocr: src('fc-ocr.js'), mt: src('fc-mt.js') }, gpu: settings.gpu !== false, ollama: settings.ollama !== false, llm: settings.llm !== false } });
     worker.on('message', (m) => { const p = pending.get(m.id); if (!p) return; pending.delete(m.id); m.ok ? p.res(m.result) : p.rej(new Error(m.error)); });
     const fail = (e) => { for (const p of pending.values()) p.rej(e instanceof Error ? e : new Error('Yerel zeka durdu')); pending.clear(); worker = null; };
     worker.on('error', fail); worker.on('exit', () => fail(new Error('Yerel zeka durdu')));
@@ -165,7 +189,15 @@ function install(opt) {
   const api = {
     status, installPacks, removePack, cancel: () => { if (busy) busy.cancel(); return true; },
     async ocr(a) { if (!ready(['runtime', 'ocr'])) throw new Error('OCR paketi kurulu değil'); return call('ocr', a); },
-    async translate(a) { if (!ready(['runtime', 'mt'])) throw new Error('Çeviri paketi kurulu değil'); return call('translate', a); },
+    async translate(a) {
+      if (!ready(['runtime', 'mt']) && !ready(['runtime', 'llm'])) throw new Error('Çeviri paketi kurulu değil');
+      // terim sözlüğü ana süreçte saklanır; iş parçacığına yalnız değişince ya da iş parçacığı yenilenince gider
+      a = Object.assign({}, a);
+      if (a.memory) { memo = a.memory; memoFor = null; }
+      const w = startWorker();
+      if (memo && memoFor !== w) { a.memory = memo; memoFor = w; } else delete a.memory;
+      return call('translate', a);
+    },
     setSettings(x) { const s = state(); s.settings = Object.assign({}, s.settings || {}, x || {}); saveState(s); return stopWorker().then(status); },
   };
 

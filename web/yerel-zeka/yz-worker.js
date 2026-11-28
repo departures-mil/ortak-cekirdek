@@ -70,12 +70,52 @@ async function getOcr(quality) {
   return ocrP;
 }
 
+/* ---------- TranslateGemma (llama.cpp) ---------- */
+const { pathToFileURL } = require('url');
+function llmPath() {
+  const d = path.join(packDir, 'llm'); if (!fs.existsSync(d)) return null;
+  const f = fs.readdirSync(d).find((n) => /\.gguf$/i.test(n)); return f ? path.join(d, f) : null;
+}
+let llmP = null, llmQ = Promise.resolve();
+function llm() {
+  const file = llmPath(); if (!file) return null;
+  const name = path.basename(file).replace(/\.gguf$/i, '');
+  const load = () => {
+    if (!llmP) llmP = (async () => {
+      const L = await import(pathToFileURL(rtRequire.resolve('node-llama-cpp')).href);
+      const gpu = D.gpu === false ? false : 'auto';
+      let llama; try { llama = await L.getLlama({ gpu, build: 'never', logLevel: 'error', progressLogs: false }); } catch (e) { llama = await L.getLlama({ gpu: false, build: 'never', logLevel: 'error', progressLogs: false }); }
+      const model = await llama.loadModel({ modelPath: file, gpuLayers: gpu === false ? 0 : 'auto' });
+      const ctx = await model.createContext({ contextSize: 8192, sequences: 1 });
+      return { L, llama, model, ctx };
+    })();
+    llmP.catch(() => { llmP = null; });
+    return llmP;
+  };
+  return {
+    name,
+    async complete(prompt, o) { // sırayla: tek dizi
+      const run = llmQ.then(async () => {
+        const { L, model, ctx } = await load();
+        const seq = ctx.getSequence();
+        try {
+          const c = new L.LlamaCompletion({ contextSequence: seq });
+          return await c.generateCompletion(model.tokenize(prompt, true), { maxTokens: o.maxTokens, temperature: 0, customStopTriggers: ['<end_of_turn>'] });
+        } finally { seq.dispose(); }
+      });
+      llmQ = run.catch(() => {});
+      return run;
+    },
+    info: async () => { const { llama } = await load(); return { gpu: llama.gpu }; },
+  };
+}
+
 /* ---------- çeviri ---------- */
 let mt = null;
 function getMt() {
   if (!mt) {
     const T = rtRequire('@huggingface/transformers');
-    mt = FCMT.create({ transformers: T, modelDir: path.join(packDir, 'mt'), modelId: D.mtModel || 'nllb-200-distilled-600M', dtype: D.mtDtype || 'fp32',
+    mt = FCMT.create({ transformers: T, llm: D.llm === false ? null : llm(), modelDir: path.join(packDir, 'mt'), modelId: D.mtModel || 'nllb-200-distilled-600M', dtype: D.mtDtype || 'fp32',
       devices: plat === 'win32' && D.gpu !== false ? ['dml', 'cpu'] : ['cpu'], ollama: D.ollama !== false, fetch: globalThis.fetch });
   }
   return mt;
@@ -88,7 +128,7 @@ const ops = {
     const r = await ocr.recognize(img, { langs: a.langs || ['tr', 'en', 'ar'] });
     return { text: r.text, lines: r.lines.map((l) => ({ text: l.text, rtl: l.rtl })), items: r.items.map((i) => ({ text: i.text, score: +i.score.toFixed(3), script: i.script, box: i.box.map((p) => [Math.round(p[0]), Math.round(p[1])]) })), ms: r.ms };
   },
-  async translate(a) { return getMt().translate(a.text, a.from, a.to, { memory: a.memory, ollama: a.ollama }); },
+  async translate(a) { return getMt().translate(a.text, a.from, a.to, { memory: a.memory, ollama: a.ollama, llm: a.llm }); },
   async warm(a) { if (a && a.ocr) await getOcr(a.quality); if (a && a.mt) await getMt().warm(); return true; },
   async status() { return { ocr: !!ocrP, mt: mt ? mt.status() : null }; },
 };

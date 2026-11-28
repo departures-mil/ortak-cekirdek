@@ -25,7 +25,7 @@ srv.listen(0, async () => {
     console.log(`OCR ${img} (${r.ms} ms):\n${r.text}`);
     for (const e of exp) check(r.text.includes(e), `OCR ${img} içinde "${e}"`);
   }
-  if (want.includes('mt')) {
+  if (want.includes('mt') || want.includes('llm')) {
     const memory = [['iniş takımı', 'landing gear', 'جهاز الهبوط'], ['pist', 'runway', 'المدرج'], ['insansız hava aracı', 'unmanned aerial vehicle', 'طائرة بدون طيار']];
     const cases = [
       ['tr', 'en', 'Pilot, kalkıştan önce iniş takımını ve yakıt miktarını kontrol etmelidir.'],
@@ -37,17 +37,22 @@ srv.listen(0, async () => {
       ['ar', 'en', 'تم استلام المبلغ من حساب شام كاش.'],
       ['tr', 'en', 'iniş takımı'],
     ];
-    for (const [f, t, s] of cases) {
-      const a = Date.now(), r = await H['fcyz:cevir']({}, { text: s, from: f, to: t, memory, ollama: false });
+    const engines = [want.includes('llm') ? true : null, want.includes('mt') ? false : null].filter((x) => x !== null);
+    for (const llm of engines) for (const [ci, [f, t, s]] of cases.entries()) {
+      if (ci === 0) await H['fcyz:ayar']({}, {}); // iş parçacığını yenile: önceki model bellekten çıksın
+      const a = Date.now(), r = await H['fcyz:cevir']({}, { text: s, from: f, to: t, memory, ollama: false, llm });
       console.log(`MT ${f}→${t} [${r.engine}, ${Date.now() - a} ms]\n  ${s}\n  → ${r.text}`);
       check(r.text && r.text.trim() && r.text !== s, `${f}→${t} boş değil`);
+      if (llm && s.split(' ').length > 2) check(/^translategemma/.test(r.engine), 'TranslateGemma kullanıldı');
       if (t === 'ar') check(/[؀-ۿ]/.test(r.text), 'Arapça yazı');
       if (t === 'en') check(/^[\x00-\x7F’“”—–\s]+$/.test(r.text), 'İngilizce (Latin)');
     }
     const r = await H['fcyz:cevir']({}, { text: 'iniş takımı', from: 'tr', to: 'ar', memory, ollama: false });
     check(r.text === 'جهاز الهبوط' && r.engine === 'bellek', 'terim sözlüğü birebir');
-    const ml = await H['fcyz:cevir']({}, { text: 'Uçuş 1: Isınma.\n\nUçuş 2: Askıda kalma testi.', from: 'tr', to: 'en', ollama: false });
-    console.log('çok satırlı →\n' + ml.text); check(ml.text.split('\n').length === 3, 'satır yapısı korunur');
+    for (const llm of engines) {
+      const ml = await H['fcyz:cevir']({}, { text: 'Uçuş 1: Isınma.\n\nUçuş 2: Askıda kalma testi.', from: 'tr', to: 'en', ollama: false, llm });
+      console.log(`çok satırlı [${ml.engine}] →\n` + ml.text); check(ml.text.split('\n').length === 3, 'satır yapısı korunur');
+    }
   }
   srv.close(); console.log(fail ? `\n${fail} doğrulama BAŞARISIZ` : '\nTüm doğrulamalar geçti'); process.exit(fail ? 1 : 0);
 });

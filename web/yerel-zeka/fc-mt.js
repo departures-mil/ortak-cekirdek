@@ -1,13 +1,26 @@
 /* FC MT — cihaz üstünde (çevrimdışı) çeviri: tr ↔ en ↔ ar, havacılık terminolojisine sadık, resmi dil.
    Sıra:
      1) Çeviri belleği / terim sözlüğü (uygulamanın verdiği [tr, en, ar] üçlüleri): birebir eşleşme → aynen.
-     2) Bilgisayardaki yerel büyük dil modeli (Ollama), varsa ve açıksa: terimler zorunlu sözlük olarak verilir.
-     3) NLLB-200 sinirsel çeviri modeli (Meta, ONNX, cihaz üstünde; Windows'ta DirectML ile GPU).
+     2) TranslateGemma (Google, Gemma 3 tabanlı çeviri modeli; 12B ya da 4B, llama.cpp ile cihaz üstünde, Vulkan GPU):
+        havacılık yönergesi + metinde geçen terimler zorunlu sözlük olarak verilir. En yüksek kalite.
+     3) Bilgisayardaki Ollama (translategemma / gemma3 / qwen …), varsa ve açıksa — aynı yönerge.
+     4) NLLB-200 sinirsel çeviri modeli (Meta, ONNX, cihaz üstünde; Windows'ta DirectML ile GPU) — hızlı yedek.
    Çalıştığı yer: Electron ana sürecindeki yerel zeka iş parçacığı (yz-worker.js). `transformers` dışarıdan verilir. */
 'use strict';
 
 const NLLB = { tr: 'tur_Latn', en: 'eng_Latn', ar: 'arb_Arab' };
-const NAMES = { tr: 'Turkish', en: 'English', ar: 'Modern Standard Arabic' };
+const IDX = { tr: 0, en: 1, ar: 2 };
+const NAMES = { tr: 'Turkish', en: 'English', ar: 'Arabic' };
+
+/** TranslateGemma resmî istem biçimi + havacılık yönergesi ve zorunlu terimler */
+function gemmaPrompt(text, from, to, terms) {
+  const S = NAMES[from], T = NAMES[to];
+  const gl = (terms || []).map((e) => `${e[IDX[from]]} = ${e[IDX[to]]}`).join('; ');
+  return `<start_of_turn>user\nYou are a professional ${S} (${from}) to ${T} (${to}) translator. Your goal is to accurately convey the meaning and nuances of the original ${S} text while adhering to ${T} grammar, vocabulary, and cultural sensitivities. ` +
+    `The text comes from official aviation training and operations documents: use standard ICAO/EASA aviation terminology and a formal register; keep numbers, units, codes and abbreviations unchanged.` +
+    (gl ? ` Use exactly these term translations: ${gl}.` : '') +
+    `\nProduce only the ${T} translation, without any additional explanations or commentary. Please translate the following ${S} text into ${T}:\n\n\n${text}<end_of_turn>\n<start_of_turn>model\n`;
+}
 const AR_RE = /[؀-ۿ]/;
 
 function detect(s) {
@@ -18,7 +31,6 @@ function detect(s) {
 }
 const lower = (s, l) => String(s || '').toLocaleLowerCase(l === 'tr' ? 'tr' : l === 'en' ? 'en' : undefined);
 const norm = (s, l) => lower(s, l).replace(/[“”"«»]/g, '').replace(/\s+/g, ' ').replace(/[.。!?؟]+$/, '').trim();
-const IDX = { tr: 0, en: 1, ar: 2 };
 
 class Memory {
   constructor() { this.map = { tr: new Map(), en: new Map(), ar: new Map() }; this.terms = []; this.sig = ''; }
@@ -82,7 +94,7 @@ function create(opts) {
       const r = await o.fetch(o.ollamaUrl + '/api/tags', { signal: ac.signal }); clearTimeout(t);
       const models = ((await r.json()).models || []).map((m) => m.name);
       // çeviri için güçlü çok dilli modeller öncelikli
-      const pref = [/gemma3:27b/, /qwen3:32b|qwen2\.5:32b/, /aya-expanse:32b|aya:35b/, /gemma3:12b/, /qwen3:14b|qwen2\.5:14b/, /aya/, /gemma/, /qwen/, /llama3/, /mistral/];
+      const pref = [/translategemma:27b/, /translategemma:12b/, /translategemma/, /gemma3:27b/, /qwen3:32b|qwen2\.5:32b/, /aya-expanse:32b|aya:35b/, /gemma3:12b/, /qwen3:14b|qwen2\.5:14b/, /aya/, /gemma/, /qwen/, /llama3/, /mistral/];
       for (const re of pref) { const m = models.find((n) => re.test(n)); if (m) { ollamaModel = m; break; } }
     } catch (e) { ollamaModel = null; }
     return ollamaModel;
@@ -124,6 +136,25 @@ function create(opts) {
     return { text: joined, engine: 'nllb:' + (p._fcDevice || 'cpu') };
   }
 
+  function chunks(text, max) { // paragraf sınırında böl; satır yapısı korunur
+    const paras = String(text).split(/(\n\s*\n)/), out = []; let cur = '';
+    for (const p of paras) { if ((cur + p).length > max && cur) { out.push(cur); cur = ''; } cur += p; }
+    if (cur) out.push(cur); return out;
+  }
+  async function viaLlm(text, from, to) {
+    if (!o.llm) return null;
+    let res = '';
+    for (const part of chunks(text, 1600)) {
+      const lead = part.match(/^\s*/)[0], trail = part.match(/\s*$/)[0], core = part.trim();
+      if (!core) { res += part; continue; }
+      const ex = mem.exact(core, from, to);
+      const out = ex || await o.llm.complete(gemmaPrompt(core, from, to, mem.termsIn(core, from)), { maxTokens: Math.min(4096, Math.round(core.length * 2) + 64) });
+      if (!out || !String(out).trim()) return null;
+      res += lead + String(out).replace(/<end_of_turn>[\s\S]*$/, '').trim() + trail;
+    }
+    return { text: res, engine: 'translategemma:' + (o.llm.name || '') };
+  }
+
   return {
     detect,
     async translate(text, from, to, x = {}) {
@@ -134,12 +165,13 @@ function create(opts) {
       if (x.memory) mem.load(x.memory);
       const exact = mem.exact(text, from, to); if (exact) return { text: exact, engine: 'bellek' };
       const terms = mem.termsIn(text, from);
+      if (x.llm !== false && o.llm) { try { const r = await viaLlm(text, from, to); if (r) return Object.assign(r, { terms: terms.length }); } catch (e) { /* NLLB'ye geç */ } }
       if (x.ollama !== false) { const r = await viaOllama(text, from, to, terms); if (r) return Object.assign(r, { terms: terms.length }); }
       const r = await viaNllb(text, from, to); r.terms = terms.length; return r;
     },
     async warm() { await nllb(); return true; },
-    status: () => ({ nllbLoaded: !!nllbP, ollama: ollamaModel || null }),
+    status: () => ({ nllbLoaded: !!nllbP, ollama: ollamaModel || null, llm: o.llm ? o.llm.name : null }),
   };
 }
 
-module.exports = { create, detect, sentences, Memory, NLLB };
+module.exports = { create, detect, sentences, Memory, NLLB, gemmaPrompt };

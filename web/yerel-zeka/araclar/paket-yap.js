@@ -3,6 +3,7 @@
    node paket-yap.js runtime <platform: win32-x64|linux-x64> <çıktı>   → runtime-<platform>.tar
    node paket-yap.js ocr <model-klasörü> <çıktı>                      → ocr.tar
    node paket-yap.js mt <nllb-klasörü> <çıktı>                        → mt-meta.tar + büyük .onnx dosyaları ayrı varlık
+   node paket-yap.js llm <model.gguf> <çıktı> <12b|4b>                → llm-<v>.gguf.NNN parçaları + llm-<v>.json
    node paket-yap.js manifest <çıktı> <sürüm>                         → paketler.json (boyut + SHA-256) */
 'use strict';
 const fs = require('fs');
@@ -12,7 +13,7 @@ const crypto = require('crypto');
 const { execFileSync } = require('child_process');
 const tar = require('../fc-tar');
 
-const VER = { ort: '1.30.0', transformers: '4.3.2', tesseract: '7.0.0', tessCore: '7.0.0' };
+const VER = { ort: '1.30.0', transformers: '4.3.2', tesseract: '7.0.0', tessCore: '7.0.0', llamaCpp: '3.22.4' };
 const [, , cmd, a1, a2, a3] = process.argv;
 const sha = (f) => crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex');
 const rm = (p) => fs.rmSync(p, { recursive: true, force: true });
@@ -22,12 +23,19 @@ function runtime(plat, out) {
   const st = fs.mkdtempSync(path.join(os.tmpdir(), 'yz-rt-'));
   fs.writeFileSync(path.join(st, 'package.json'), JSON.stringify({ name: 'yz-runtime', private: true }));
   execFileSync('npm', ['install', '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund', '--os=' + osName, '--cpu=' + arch,
-    `onnxruntime-node@${VER.ort}`, `@huggingface/transformers@${VER.transformers}`, `tesseract.js@${VER.tesseract}`, `tesseract.js-core@${VER.tessCore}`], { cwd: st, stdio: 'inherit', shell: process.platform === 'win32' });
+    `onnxruntime-node@${VER.ort}`, `@huggingface/transformers@${VER.transformers}`, `tesseract.js@${VER.tesseract}`, `tesseract.js-core@${VER.tessCore}`, `node-llama-cpp@${VER.llamaCpp}`], { cwd: st, stdio: 'inherit', shell: process.platform === 'win32' });
   const nm = path.join(st, 'node_modules');
   // yalnız hedef platformun yerel dosyaları
   const bin = path.join(nm, 'onnxruntime-node', 'bin', 'napi-v6');
   for (const o of fs.readdirSync(bin)) for (const a of fs.readdirSync(path.join(bin, o))) if (o !== osName || a !== arch) rm(path.join(bin, o, a));
   for (const o of fs.readdirSync(bin)) if (!fs.readdirSync(path.join(bin, o)).length) rm(path.join(bin, o));
+  // llama.cpp: yalnız hedef platformun CPU + Vulkan (her ekran kartı) ikilileri; CUDA (çok büyük) yok
+  const nlc = path.join(nm, '@node-llama-cpp');
+  if (fs.existsSync(nlc)) {
+    const pk = osName === 'win32' ? 'win' : osName === 'darwin' ? 'mac' : osName;
+    for (const d of fs.readdirSync(nlc)) if (!(d === `${pk}-${arch}` || d === `${pk}-${arch}-vulkan`)) rm(path.join(nlc, d));
+  }
+  for (const d of ['llama/llama.cpp', 'llama/gitRelease.bundle', 'templates']) rm(path.join(nm, 'node-llama-cpp', d));
   // metin işi için gereksiz büyük bağımlılıklar
   for (const d of ['onnxruntime-web', '@img', 'sharp', 'typescript']) rm(path.join(nm, d));
   fs.mkdirSync(path.join(nm, 'sharp'), { recursive: true });
@@ -72,6 +80,22 @@ function mt(src, out) { // src: Xenova/nllb-200-distilled-600M kopyası
   console.log('→ mt hazır');
 }
 
+function llm(gguf, out, variant) { // >2 GB: sürüm varlıkları en çok 2 GB → 1900 MB parçalar
+  const name = path.basename(gguf), size = fs.statSync(gguf).size, PART = 1900 * 1048576, parts = [];
+  const whole = crypto.createHash('sha256'), fd = fs.openSync(gguf, 'r'), buf = Buffer.alloc(16 << 20);
+  fs.mkdirSync(out, { recursive: true });
+  for (let i = 0, off = 0; off < size; i++, off += PART) {
+    const asset = `llm-${variant}.gguf.${String(i).padStart(3, '0')}`, w = fs.openSync(path.join(out, asset), 'w'), h = crypto.createHash('sha256');
+    let left = Math.min(PART, size - off), pos = off;
+    while (left > 0) { const n = fs.readSync(fd, buf, 0, Math.min(buf.length, left), pos); h.update(buf.subarray(0, n)); whole.update(buf.subarray(0, n)); fs.writeSync(w, buf, 0, n); left -= n; pos += n; }
+    fs.closeSync(w); parts.push({ asset, size: Math.min(PART, size - off), sha256: h.digest('hex') });
+  }
+  fs.closeSync(fd);
+  const ent = { asset: name, path: name, size, sha256: whole.digest('hex'), parts };
+  fs.writeFileSync(path.join(out, `llm-${variant}.json`), JSON.stringify({ files: [ent] }, null, 1));
+  console.log('→ llm', variant, name, (size / 1073741824).toFixed(2), 'GB', parts.length, 'parça');
+}
+
 function manifest(out, version) {
   const files = fs.readdirSync(out);
   const ent = (asset, x) => Object.assign({ asset, size: fs.statSync(path.join(out, asset)).size, sha256: sha(path.join(out, asset)) }, x);
@@ -82,6 +106,7 @@ function manifest(out, version) {
     ent('nllb600-encoder_model.onnx', { path: 'nllb-200-distilled-600M/onnx/encoder_model.onnx' }),
     ent('nllb600-decoder_model_merged.onnx', { path: 'nllb-200-distilled-600M/onnx/decoder_model_merged.onnx' })] };
   for (const p of Object.values(packs)) p.version = crypto.createHash('sha256').update(p.files.map((f) => f.sha256).join('')).digest('hex').slice(0, 16);
+  for (const f of files) { const mm = f.match(/^llm-(\w+)\.json$/); if (mm) packs['llm-' + mm[1]] = JSON.parse(fs.readFileSync(path.join(out, f), 'utf8')); }
   const m = { version: String(version || 1), created: new Date().toISOString(), packs };
   fs.writeFileSync(path.join(out, 'paketler.json'), JSON.stringify(m, null, 1));
   console.log(JSON.stringify(m, null, 1));
@@ -90,5 +115,6 @@ function manifest(out, version) {
 if (cmd === 'runtime') runtime(a1, a2);
 else if (cmd === 'ocr') ocr(a1, a2);
 else if (cmd === 'mt') mt(a1, a2);
+else if (cmd === 'llm') llm(a1, a2, a3);
 else if (cmd === 'manifest') manifest(a1, a2);
 else { console.error('kullanım: paket-yap.js runtime|ocr|mt|manifest …'); process.exit(2); }

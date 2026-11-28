@@ -25,14 +25,17 @@ jobs:
   paketle:
     name: Paketle + uçtan uca dene
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - name: Yer aç
-        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL; df -h /
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/share/swift /usr/local/share/boost /usr/local/share/powershell /usr/local/share/chromium /opt/microsoft /opt/google /usr/lib/jvm /opt/az || true
+          sudo docker image prune --all --force >/dev/null 2>&1 || true
+          df -h /
 
       - name: OCR modelleri (SHA-256 sabit)
         run: |
@@ -56,6 +59,39 @@ jobs:
           for f in encoder_model.onnx decoder_model_merged.onnx; do curl -fSL --retry 3 -o onnx/$f "$NLLB/onnx/$f"; done
           ls -la . onnx; sha256sum onnx/*
 
+      - name: TranslateGemma (Google) — 12B ve 4B GGUF
+        run: |
+          set -e; mkdir -p /tmp/llm; cd /tmp/llm
+          getgguf() { # $1 çıktı, sonra adaylar: https://… ya da ollama:ad:etiket
+            out=$1; shift
+            for c in "$@"; do
+              echo "deneniyor: $c"
+              if [[ $c == ollama:* ]]; then
+                ref=${c#ollama:}; n=${ref%%:*}; t=${ref#*:}
+                dg=$(curl -fsSL "https://registry.ollama.ai/v2/library/$n/manifests/$t" -H 'Accept: application/vnd.docker.distribution.manifest.v2+json' | python3 -c "import json,sys;print([l['digest'] for l in json.load(sys.stdin)['layers'] if l['mediaType'].endswith('image.model')][0])") || continue
+                curl -fSL --retry 3 -o "$out" "https://registry.ollama.ai/v2/library/$n/blobs/$dg" && { echo "$c" > "$out.kaynak"; return 0; }
+              else
+                curl -fSL --retry 3 -o "$out" "$c" && { echo "$c" > "$out.kaynak"; return 0; }
+              fi
+              rm -f "$out"
+            done
+            return 1
+          }
+          getgguf translategemma-12b-it.gguf \
+            https://huggingface.co/mradermacher/translategemma-12b-it-GGUF/resolve/main/translategemma-12b-it.Q6_K.gguf \
+            https://huggingface.co/bartowski/google_translategemma-12b-it-GGUF/resolve/main/google_translategemma-12b-it-Q6_K.gguf \
+            https://huggingface.co/unsloth/translategemma-12b-it-GGUF/resolve/main/translategemma-12b-it-Q6_K.gguf \
+            ollama:translategemma:12b-it-q4_K_M \
+            https://huggingface.co/anilb/translategemma-gguf/resolve/main/translategemma-12b-it.Q4_K_M.gguf
+          getgguf translategemma-4b-it.gguf \
+            https://huggingface.co/mradermacher/translategemma-4b-it-GGUF/resolve/main/translategemma-4b-it.Q8_0.gguf \
+            https://huggingface.co/bartowski/google_translategemma-4b-it-GGUF/resolve/main/google_translategemma-4b-it-Q8_0.gguf \
+            https://huggingface.co/unsloth/translategemma-4b-it-GGUF/resolve/main/translategemma-4b-it-Q8_0.gguf \
+            ollama:translategemma:4b-it-q8_0 \
+            https://huggingface.co/anilb/translategemma-gguf/resolve/main/translategemma-4b-it.Q4_K_M.gguf
+          head -c 4 translategemma-12b-it.gguf | grep -q GGUF; head -c 4 translategemma-4b-it.gguf | grep -q GGUF
+          ls -la; cat *.kaynak; df -h /
+
       - name: Paketleri hazırla
         working-directory: web/yerel-zeka
         run: |
@@ -63,7 +99,10 @@ jobs:
           node araclar/paket-yap.js runtime linux-x64 /tmp/paket
           node araclar/paket-yap.js runtime win32-x64 /tmp/paket
           node araclar/paket-yap.js ocr /tmp/ocr /tmp/paket
-          node araclar/paket-yap.js mt /tmp/nllb /tmp/paket
+          node araclar/paket-yap.js mt /tmp/nllb /tmp/paket && rm -rf /tmp/nllb
+          node araclar/paket-yap.js llm /tmp/llm/translategemma-12b-it.gguf /tmp/paket 12b
+          node araclar/paket-yap.js llm /tmp/llm/translategemma-4b-it.gguf /tmp/paket 4b
+          rm -rf /tmp/llm/*.gguf
           node araclar/paket-yap.js manifest /tmp/paket "${GITHUB_RUN_NUMBER}"
           ls -la /tmp/paket
 
@@ -72,7 +111,7 @@ jobs:
         run: |
           set -e
           mkdir -p /tmp/e2e && (cd /tmp/e2e && npm init -y >/dev/null && npm i --silent sharp@0.34)
-          cd /tmp/e2e && node $GITHUB_WORKSPACE/web/yerel-zeka/araclar/e2e.js /tmp/paket ocr mt
+          cd /tmp/e2e && node $GITHUB_WORKSPACE/web/yerel-zeka/araclar/e2e.js /tmp/paket ocr mt llm
 
       - name: Sürüme yükle
         if: github.event_name == 'push' || inputs.yayinla
@@ -80,10 +119,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -e
+          export GH_REPO=$GITHUB_REPOSITORY
           gh release view "$ETIKET" >/dev/null 2>&1 || gh release create "$ETIKET" --prerelease --target "$GITHUB_SHA" --title "Yerel zeka paketleri (çevrimdışı OCR + çeviri)" \
-            --notes "Uygulamaların Ayarlar → Çevrimdışı yapay zekâ kartından indirilir. PaddleOCR PP-OCRv5 + Tesseract (Apache-2.0), NLLB-200 (Meta, CC-BY-NC-4.0), onnxruntime-node (MIT), transformers.js (Apache-2.0)."
+            --notes "Uygulamaların Ayarlar → Çevrimdışı yapay zekâ kartından indirilir. PaddleOCR PP-OCRv5 + Tesseract (Apache-2.0), TranslateGemma (Google, Gemma Kullanım Koşulları), NLLB-200 (Meta, CC-BY-NC-4.0), onnxruntime-node (MIT), transformers.js (Apache-2.0), node-llama-cpp (MIT)."
           cd /tmp/paket
           # büyük modeller önce, liste (paketler.json) en son: istemciler yarım yükleme görmez
-          gh release upload "$ETIKET" nllb600-*.onnx mt-meta.tar ocr.tar runtime-*.tar --clobber
+          gh release upload "$ETIKET" llm-*.gguf.* nllb600-*.onnx mt-meta.tar ocr.tar runtime-*.tar --clobber
           gh release upload "$ETIKET" paketler.json --clobber
           gh release view "$ETIKET" --json assets --jq '.assets[] | "\(.name) \(.size)"'
